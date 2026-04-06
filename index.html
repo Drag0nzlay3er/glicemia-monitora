@@ -3,27 +3,27 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>Monitoramento Glicêmico</title>
-<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+<title>Monitoramento Glicêmico Pro</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <style>
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
     body{background:#0f1117;color:#e8e4df;font-family:'DM Sans',sans-serif;min-height:100dvh;overscroll-behavior:none}
     .app{max-width:480px;margin:0 auto;display:flex;flex-direction:column;min-height:100dvh}
-    .header{padding:50px 20px 20px;background:#1a1f2e;border-bottom:1px solid rgba(255,255,255,0.05);display:flex;justify-content:space-between;align-items:center}
-    .card{background:#1a1f2e;border-radius:16px;padding:20px;margin:20px;border:1px solid rgba(255,255,255,0.1);box-shadow:0 4px 20px rgba(0,0,0,0.3)}
-    .val{font-size:36px;font-weight:700;color:#e8c4a0;line-height:1}
-    .label{font-size:12px;color:#7c7a76;margin-top:8px;text-transform:uppercase;letter-spacing:1px}
-    .tabs{position:fixed;bottom:0;width:100%;max-width:480px;display:flex;background:#1a1f2e;border-top:1px solid rgba(255,255,255,0.1);padding-bottom:env(safe-area-inset-bottom)}
-    .tab-btn{flex:1;padding:20px;color:#5c5a56;background:none;border:none;font-weight:600;cursor:pointer}
-    .tab-btn.active{color:#e8c4a0;border-bottom:2px solid #e8c4a0}
-    .btn-primary{width:100%;padding:16px;background:linear-gradient(135deg,#e8c4a0,#d4a574);color:#0f1117;border:none;border-radius:12px;font-weight:700;font-size:16px;cursor:pointer;margin-top:10px}
-    .field{margin-bottom:15px}
-    .field label{display:block;font-size:13px;color:#7c7a76;margin-bottom:8px}
-    .field input{width:100%;padding:14px;background:#252b3b;border:1px solid rgba(255,255,255,0.1);color:#fff;border-radius:10px;font-size:16px;outline:none}
-    .log-item{padding:12px;border-bottom:1px solid rgba(255,255,255,0.05);display:flex;justify-content:space-between;font-size:14px}
-    .status-dot{width:8px;height:8px;background:#4ade80;border-radius:50%;display:inline-block;margin-right:6px}
+    .header{padding:50px 20px 20px;background:linear-gradient(160deg,#1a1f2e 0%,#0f1117 100%);border-bottom:1px solid rgba(255,255,255,0.06);display:flex;justify-content:space-between;align-items:center}
+    .header h1{font-family:'DM Serif Display',serif;font-size:24px;color:#e8c4a0}
+    .card{background:#1a1f2e;border:1px solid rgba(255,255,255,0.07);border-radius:16px;padding:20px;margin:15px;box-shadow:0 10px 30px rgba(0,0,0,0.4)}
+    .stat-pill{flex:1;background:rgba(255,255,255,0.03);border-radius:12px;padding:15px;text-align:center;border:1px solid rgba(255,255,255,0.05)}
+    .val{font-size:32px;font-weight:600;color:#e8c4a0}
+    .label{font-size:11px;text-transform:uppercase;color:#7c7a76;margin-top:5px;letter-spacing:1px}
+    .tabs{position:fixed;bottom:0;width:100%;max-width:480px;display:flex;background:rgba(26,31,46,0.95);backdrop-filter:blur(10px);border-top:1px solid rgba(255,255,255,0.08);padding-bottom:env(safe-area-inset-bottom)}
+    .tab-btn{flex:1;padding:20px;color:#5c5a56;background:none;border:none;font-weight:600;font-size:12px;cursor:pointer}
+    .tab-btn.active{color:#e8c4a0;box-shadow:inset 0 2px 0 #e8c4a0}
+    .profile-item{background:rgba(255,255,255,0.03);padding:15px;border-radius:12px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;border:1px solid rgba(255,255,255,0.05);cursor:pointer}
+    .btn-primary{width:100%;padding:16px;background:linear-gradient(135deg,#e8c4a0,#d4a574);color:#0f1117;border:none;border-radius:12px;font-weight:700;margin-top:15px;cursor:pointer}
+    .field input{width:100%;padding:14px;background:#252b3b;border:1px solid rgba(255,255,255,0.1);color:#fff;border-radius:10px;margin-top:8px;font-size:16px}
+    .overlay{position:fixed;inset:0;background:rgba(15,17,23,0.98);z-index:100;padding:40px 20px;display:flex;flex-direction:column}
 </style>
 </head>
 <body>
@@ -32,53 +32,167 @@
 <script>
 const {useState, useEffect, useCallback} = React;
 
-// CONFIGURAÇÃO MANUAL (COLE SEUS DADOS AQUI)
-const CONFIG = {
-    TOKEN: "COLE_AQUI_SEU_GITHUB_TOKEN", 
-    GIST_ID: "COLE_AQUI_O_ID_DO_SEU_GIST"
-};
+const GITHUB_TOKEN = "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";
+const FILE_NAME = "glicemia-data.json";
 
 function App() {
+    const [gistId, setGistId] = useState(localStorage.getItem('glicemia_gist_id') || "");
     const [data, setData] = useState(null);
+    const [activeProfile, setActiveProfile] = useState(null);
     const [tab, setTab] = useState("Dashboard");
     const [loading, setLoading] = useState(true);
+    const [showSwitcher, setShowSwitcher] = useState(false);
 
-    const fetchData = useCallback(async () => {
-        if (!CONFIG.TOKEN || CONFIG.TOKEN.includes("COLE_AQUI")) {
-            setLoading(false);
-            return;
-        }
+    // Função para criar o Gist automaticamente se não existir
+    const createInitialGist = async () => {
+        const initialData = {
+            profiles: [
+                { id: "p1", nome: "Wagner", isAdmin: true, logs: [], pin: "1234" }
+            ]
+        };
         try {
-            const r = await fetch(`https://api.github.com/gists/${CONFIG.GIST_ID}`, {
-                headers: { 'Authorization': `token ${CONFIG.TOKEN}`, 'Cache-Control': 'no-cache' }
+            const r = await fetch("https://api.github.com/gists", {
+                method: "POST",
+                headers: { 'Authorization': `token ${GITHUB_TOKEN}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    description: "Dados de Glicemia",
+                    public: false,
+                    files: { [FILE_NAME]: { content: JSON.stringify(initialData) } }
+                })
             });
-            const g = await r.json();
-            const content = g.files["glicemia-data.json"]?.content;
-            
-            if (content) {
-                setData(JSON.parse(content));
-            } else {
-                setData({ profiles: [{ id: "admin", nome: "Wagner", logs: [] }] });
-            }
-        } catch (e) {
-            console.error("Erro na conexão");
-        } finally {
-            setLoading(false);
-        }
-    }, []);
+            const d = await r.json();
+            localStorage.setItem('glicemia_gist_id', d.id);
+            setGistId(d.id);
+            setData(initialData);
+            setActiveProfile(initialData.profiles[0]);
+        } catch (e) { alert("Erro ao criar Gist inicial"); }
+    };
 
-    useEffect(() => { fetchData(); }, [fetchData]);
+    const sync = useCallback(async (newData = null) => {
+        if (!gistId) { await createInitialGist(); setLoading(false); return; }
+        
+        const headers = { 'Authorization': `token ${GITHUB_TOKEN}` };
+        try {
+            if (newData) {
+                await fetch(`https://api.github.com/gists/${gistId}`, {
+                    method: "PATCH",
+                    headers,
+                    body: JSON.stringify({ files: { [FILE_NAME]: { content: JSON.stringify(newData) } } })
+                });
+            } else {
+                const r = await fetch(`https://api.github.com/gists/${gistId}`, { headers });
+                const g = await r.json();
+                const content = JSON.parse(g.files[FILE_NAME].content);
+                setData(content);
+                if (!activeProfile) setActiveProfile(content.profiles[0]);
+            }
+        } catch (e) { console.error("Erro de sincronização"); }
+        setLoading(false);
+    }, [gistId, activeProfile]);
+
+    useEffect(() => { sync(); }, [sync]);
 
     const saveEntry = async () => {
         const j = document.getElementById("inj").value;
         const p = document.getElementById("inp").value;
-        if (!j && !p) return;
+        if (!j) return;
+        const newLog = { data: new Date().toLocaleDateString('pt-BR'), jejum: j, pos_cafe: p };
+        const updatedProfile = { ...activeProfile, logs: [newLog, ...(activeProfile.logs || [])] };
+        const newData = { ...data, profiles: data.profiles.map(p => p.id === activeProfile.id ? updatedProfile : p) };
+        setData(newData); setActiveProfile(updatedProfile);
+        await sync(newData);
+        setTab("Dashboard");
+    };
 
-        const newLog = { 
-            data: new Date().toLocaleDateString('pt-BR'), 
-            jejum: j, 
-            pos_cafe: p 
-        };
+    const addProfile = async () => {
+        const nome = prompt("Nome do novo perfil:");
+        if (!nome) return;
+        const newP = { id: "p"+Date.now(), nome, isAdmin: false, logs: [] };
+        const newData = { ...data, profiles: [...data.profiles, newP] };
+        setData(newData);
+        await sync(newData);
+    };
 
-        const newData = data ? {...data} : { profiles: [{ id: "admin", nome: "Wagner", logs: [] }] };
-        newData.profiles[0].logs.unshift(newLog
+    if (loading) return React.createElement("div", {style:{padding:50, textAlign:'center'}}, "Iniciando sistema...");
+
+    return React.createElement("div", {className:"app"},
+        React.createElement("header", {className:"header"},
+            React.createElement("div", null,
+                React.createElement("h1", null, "Glicemia"),
+                React.createElement("p", {style:{fontSize:12, color:'#e8c4a0'}}, activeProfile?.nome)
+            ),
+            React.createElement("button", { 
+                onClick: () => setShowSwitcher(true),
+                style:{background:'rgba(232,196,160,0.1)', border:'none', color:'#e8c4a0', padding:'8px 15px', borderRadius:10, fontSize:12}
+            }, "PERFIS")
+        ),
+
+        tab === "Dashboard" && React.createElement("div", null,
+            React.createElement("div", {className:"card", style:{display:'flex', gap:10}},
+                React.createElement("div", {className:"stat-pill"},
+                    React.createElement("div", {className:"val"}, activeProfile?.logs[0]?.jejum || "—"),
+                    React.createElement("div", {className:"label"}, "Jejum")
+                ),
+                React.createElement("div", {className:"stat-pill"},
+                    React.createElement("div", {className:"val"}, activeProfile?.logs[0]?.pos_cafe || "—"),
+                    React.createElement("div", {className:"label"}, "Pós-Café")
+                )
+            ),
+            React.createElement("div", {className:"card"},
+                React.createElement("h3", {style:{fontSize:13, color:'#7c7a76', marginBottom:15}}, "HISTÓRICO RECENTE"),
+                activeProfile?.logs?.slice(0,5).map((l,i) => 
+                    React.createElement("div", {key:i, style:{display:'flex', justifyContent:'space-between', padding:'12px 0', borderBottom:'1px solid rgba(255,255,255,0.05)'}},
+                        React.createElement("span", null, l.data),
+                        React.createElement("span", {style:{fontWeight:600, color:'#e8c4a0'}}, `${l.jejum} mg/dL`)
+                    )
+                )
+            )
+        ),
+
+        tab === "Registrar" && React.createElement("div", {className:"card"},
+            React.createElement("div", {className:"field"}, 
+                React.createElement("label", null, "Glicemia em Jejum"),
+                React.createElement("input", {id:"inj", type:"number", placeholder: "000"})
+            ),
+            React.createElement("div", {className:"field", style:{marginTop:15}}, 
+                React.createElement("label", null, "Glicemia Pós-Café"),
+                React.createElement("input", {id:"inp", type:"number", placeholder: "000"})
+            ),
+            React.createElement("button", {className:"btn-primary", onClick: saveEntry}, "Salvar no GitHub")
+        ),
+
+        tab === "Admin" && React.createElement("div", {className:"card"},
+            React.createElement("h2", {style:{fontFamily:'DM Serif Display', marginBottom:20}}, "Gestão de Perfis"),
+            data?.profiles.map(p => 
+                React.createElement("div", {key:p.id, className:"profile-item"}, 
+                    React.createElement("span", null, p.nome),
+                    p.isAdmin && React.createElement("span", {style:{fontSize:10, opacity:0.5}}, "ADMIN")
+                )
+            ),
+            React.createElement("button", {className:"btn-primary", onClick: addProfile}, "+ Novo Perfil")
+        ),
+
+        showSwitcher && React.createElement("div", {className:"overlay"},
+            React.createElement("h2", {style:{fontFamily:'DM Serif Display', fontSize:32, marginBottom:40}}, "Selecionar Perfil"),
+            data?.profiles.map(p => 
+                React.createElement("div", {
+                    key:p.id, 
+                    className:"profile-item",
+                    onClick: () => { setActiveProfile(p); setShowSwitcher(false); }
+                }, p.nome)
+            ),
+            React.createElement("button", {onClick:()=>setShowSwitcher(false), style:{marginTop:'auto', color:'#7c7a76', background:'none', border:'none', padding:20}}, "Fechar")
+        ),
+
+        React.createElement("nav", {className:"tabs"},
+            React.createElement("button", {className:`tab-btn ${tab==='Dashboard'?'active':''}`, onClick:()=>setTab("Dashboard")}, "HOME"),
+            React.createElement("button", {className:`tab-btn ${tab==='Registrar'?'active':''}`, onClick:()=>setTab("Registrar")}, "ADICIONAR"),
+            activeProfile?.isAdmin && React.createElement("button", {className:`tab-btn ${tab==='Admin'?'active':''}`, onClick:()=>setTab("Admin")}, "ADMIN")
+        )
+    );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(App));
+</script>
+</body>
+</html>
