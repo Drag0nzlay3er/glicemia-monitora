@@ -12,7 +12,6 @@
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
-<script src="https://unpkg.com/recharts@2.5.0/umd/Recharts.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -58,7 +57,6 @@ body{background:#0f1117;color:#e8e4df;font-family:'DM Sans',sans-serif;min-heigh
 .list-item .values{display:flex;gap:14px;flex-wrap:wrap;align-items:center}
 .list-item .val-item{font-size:13px}
 .list-item .val-item span{font-weight:600;font-size:15px}
-.chart-wrap{height:180px;margin-top:8px}
 .chip-grid{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
 .chip{padding:7px 14px;border-radius:100px;font-size:13px;border:1px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.04);cursor:pointer;transition:all .15s;font-family:'DM Sans',sans-serif;color:#e8e4df;-webkit-tap-highlight-color:transparent}
 .chip.selected{background:rgba(232,196,160,0.2);border-color:#e8c4a0;color:#e8c4a0}
@@ -85,20 +83,23 @@ body{background:#0f1117;color:#e8e4df;font-family:'DM Sans',sans-serif;min-heigh
 .step a{color:#60a5fa;text-decoration:none}
 .divider{height:1px;background:rgba(255,255,255,0.06);margin:16px 0}
 .export-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px}
-.export-btn{background:#1a1f2e;border:1px solid rgba(255,255,255,0.1);border-radius:14px;padding:16px 12px;text-align:center;cursor:pointer;transition:border-color .2s;-webkit-tap-highlight-color:transparent}
+.export-btn{background:#1a1f2e;border:1px solid rgba(255,255,255,0.1);border-radius:14px;padding:16px 12px;text-align:center;cursor:pointer;-webkit-tap-highlight-color:transparent}
 .export-btn:active{opacity:.8}
 .export-btn .eb-icon{font-size:26px;margin-bottom:8px}
 .export-btn .eb-title{font-size:13px;font-weight:600;color:#e8e4df;margin-bottom:3px}
 .export-btn .eb-sub{font-size:11px;color:#7c7a76;line-height:1.4}
 .export-btn.pdf-btn{border-color:rgba(248,113,113,0.3)}
 .export-btn.html-btn{border-color:rgba(96,165,250,0.3)}
+/* SVG Chart */
+.chart-container{width:100%;margin-top:12px;position:relative}
+.chart-svg{width:100%;height:180px;overflow:visible}
+.chart-tooltip{position:absolute;background:#252b3b;border:1px solid rgba(255,255,255,0.15);border-radius:8px;padding:8px 12px;font-size:12px;pointer-events:none;z-index:10;white-space:nowrap}
 </style>
 </head>
 <body>
 <div id="root"></div>
 <script>
-const {useState,useEffect,useCallback}=React;
-const {LineChart,Line,XAxis,YAxis,CartesianGrid,Tooltip,ResponsiveContainer,ReferenceLine}=Recharts;
+const {useState,useEffect,useCallback,useRef}=React;
 
 // ── Storage ───────────────────────────────────────────────────────────────────
 const LS={
@@ -125,266 +126,206 @@ const SC={ok:"#4ade80",warn:"#fbbf24",high:"#f87171",low:"#60a5fa"};
 const TABS=["Dashboard","Registrar","Histórico","Reações","Perfil"];
 const CHIPS=["Tontura","Náusea","Dor de cabeça","Suor frio","Tremor","Palpitação","Fraqueza","Visão turva","Irritabilidade","Sonolência","Fome excessiva","Formigamento","Inchaço","Dor abdominal","Sem reações"];
 
+// ── Pure SVG Chart ────────────────────────────────────────────────────────────
+function LineChart({data}){
+  const[tooltip,setTooltip]=useState(null);
+  if(!data||data.length<2)return null;
+
+  const W=320,H=160,padL=36,padR=10,padT=10,padB=28;
+  const cw=W-padL-padR,ch=H-padT-padB;
+
+  const allVals=data.flatMap(d=>[d.j,d.p].filter(v=>v!=null));
+  const minV=Math.min(...allVals,60);
+  const maxV=Math.max(...allVals,150);
+  const range=maxV-minV||1;
+
+  const px=(i)=>padL+i*(cw/(data.length-1));
+  const py=(v)=>padT+ch-(((v-minV)/range)*ch);
+
+  const lineD=(key)=>data.map((d,i)=>{
+    const v=d[key];if(v==null)return null;
+    return`${i===0||data[i-1][key]==null?"M":"L"}${px(i).toFixed(1)},${py(v).toFixed(1)}`;
+  }).filter(Boolean).join(" ");
+
+  // y gridlines
+  const steps=4;
+  const grids=Array.from({length:steps+1},(_,i)=>minV+Math.round((range/steps)*i));
+
+  // ref lines
+  const refs=[{v:100,c:"#fbbf24"},{v:140,c:"#f87171"}].filter(r=>r.v>=minV&&r.v<=maxV);
+
+  return React.createElement("div",{className:"chart-container"},
+    React.createElement("svg",{viewBox:`0 0 ${W} ${H}`,className:"chart-svg",
+      onMouseLeave:()=>setTooltip(null),
+      onTouchEnd:()=>setTimeout(()=>setTooltip(null),2000)},
+
+      // grid
+      grids.map(v=>React.createElement("g",{key:v},
+        React.createElement("line",{x1:padL,x2:W-padR,y1:py(v),y2:py(v),stroke:"rgba(255,255,255,0.05)",strokeWidth:1}),
+        React.createElement("text",{x:padL-4,y:py(v)+4,textAnchor:"end",fontSize:9,fill:"#7c7a76"},v)
+      )),
+
+      // ref lines
+      refs.map(r=>React.createElement("line",{key:r.v,x1:padL,x2:W-padR,y1:py(r.v),y2:py(r.v),stroke:r.c,strokeWidth:1,strokeDasharray:"4 3"})),
+
+      // x labels
+      data.map((d,i)=>(i===0||i===data.length-1||i===Math.floor(data.length/2))&&
+        React.createElement("text",{key:i,x:px(i),y:H-4,textAnchor:"middle",fontSize:9,fill:"#7c7a76"},d.label)
+      ),
+
+      // lines
+      React.createElement("path",{d:lineD("j"),fill:"none",stroke:"#e8c4a0",strokeWidth:2,strokeLinecap:"round",strokeLinejoin:"round"}),
+      React.createElement("path",{d:lineD("p"),fill:"none",stroke:"#c084fc",strokeWidth:2,strokeLinecap:"round",strokeLinejoin:"round"}),
+
+      // dots
+      data.map((d,i)=>React.createElement(React.Fragment,{key:i},
+        d.j!=null&&React.createElement("circle",{cx:px(i),cy:py(d.j),r:3,fill:"#e8c4a0",
+          onMouseEnter:e=>setTooltip({x:px(i),y:py(d.j),d}),
+          onTouchStart:e=>setTooltip({x:px(i),y:py(d.j),d})}),
+        d.p!=null&&React.createElement("circle",{cx:px(i),cy:py(d.p),r:3,fill:"#c084fc",
+          onMouseEnter:e=>setTooltip({x:px(i),y:py(d.p),d}),
+          onTouchStart:e=>setTooltip({x:px(i),y:py(d.p),d})})
+      )),
+
+      // legend
+      React.createElement("circle",{cx:padL+4,cy:padT+6,r:4,fill:"#e8c4a0"}),
+      React.createElement("text",{x:padL+12,y:padT+10,fontSize:9,fill:"#e8c4a0"},"Jejum"),
+      React.createElement("circle",{cx:padL+52,cy:padT+6,r:4,fill:"#c084fc"}),
+      React.createElement("text",{x:padL+60,y:padT+10,fontSize:9,fill:"#c084fc"},"Pós-café"),
+
+      // ref legend
+      React.createElement("line",{x1:W-80,x2:W-68,y1:padT+6,y2:padT+6,stroke:"#fbbf24",strokeWidth:1.5,strokeDasharray:"3 2"}),
+      React.createElement("text",{x:W-64,y:padT+10,fontSize:8,fill:"#fbbf24"},"100"),
+      React.createElement("line",{x1:W-46,x2:W-34,y1:padT+6,y2:padT+6,stroke:"#f87171",strokeWidth:1.5,strokeDasharray:"3 2"}),
+      React.createElement("text",{x:W-30,y:padT+10,fontSize:8,fill:"#f87171"},"140")
+    ),
+    tooltip&&React.createElement("div",{className:"chart-tooltip",style:{left:Math.min(tooltip.x+8,240),top:tooltip.y-36}},
+      React.createElement("div",{style:{color:"#7c7a76",marginBottom:3}},tooltip.d.label),
+      tooltip.d.j!=null&&React.createElement("div",{style:{color:"#e8c4a0"}},`Jejum: ${tooltip.d.j} mg/dL`),
+      tooltip.d.p!=null&&React.createElement("div",{style:{color:"#c084fc"}},`Pós: ${tooltip.d.p} mg/dL`)
+    )
+  );
+}
+
 // ── PDF Export ────────────────────────────────────────────────────────────────
+function hexToRgb(hex){return[parseInt(hex.slice(1,3),16),parseInt(hex.slice(3,5),16),parseInt(hex.slice(5,7),16)]}
+
 function exportPDF(profile,readings,reactions,avgJ,avgP){
   const {jsPDF}=window.jspdf;
   const doc=new jsPDF({orientation:"portrait",unit:"mm",format:"a4"});
-  const W=210,mar=18,cw=W-mar*2;
-  let y=mar;
+  const W=210,mar=18,cw=W-mar*2;let y=mar;
+  const checkY=(n=10)=>{if(y+n>280){doc.addPage();y=mar;}};
 
-  const addPage=()=>{doc.addPage();y=mar;};
-  const checkY=(need=10)=>{if(y+need>280)addPage()};
-
-  // ── Header bar ──
-  doc.setFillColor(26,31,46);
-  doc.rect(0,0,210,38,`F`);
-  doc.setTextColor(232,196,160);
-  doc.setFontSize(20);
-  doc.setFont("helvetica","bold");
-  doc.text("Relatório de Monitoramento Glicêmico",mar,16);
-  doc.setFontSize(9);
-  doc.setFont("helvetica","normal");
-  doc.setTextColor(150,148,144);
-  doc.text(`Gerado em ${new Date().toLocaleDateString("pt-BR")} às ${new Date().toLocaleTimeString("pt-BR")}`,mar,24);
+  doc.setFillColor(26,31,46);doc.rect(0,0,210,38,"F");
+  doc.setTextColor(232,196,160);doc.setFontSize(18);doc.setFont("helvetica","bold");
+  doc.text("Relatório de Monitoramento Glicêmico",mar,15);
+  doc.setFontSize(9);doc.setFont("helvetica","normal");doc.setTextColor(150,148,144);
+  doc.text(`Gerado em: ${new Date().toLocaleDateString("pt-BR")} às ${new Date().toLocaleTimeString("pt-BR")}`,mar,23);
   if(profile.nome)doc.text(`Paciente: ${profile.nome}`,mar,30);
   y=46;
 
-  // ── Paciente / Médico cards ──
-  const drawCard=(title,lines,xStart,cardW)=>{
-    doc.setFillColor(26,31,46);
-    doc.roundedRect(xStart,y,cardW,8+lines.length*6,3,3,"F");
-    doc.setFontSize(7);doc.setFont("helvetica","bold");doc.setTextColor(124,122,118);
-    doc.text(title.toUpperCase(),xStart+4,y+5);
-    doc.setFontSize(9);doc.setFont("helvetica","normal");doc.setTextColor(232,228,223);
-    lines.forEach((l,i)=>doc.text(l,xStart+4,y+11+i*6));
-    return 10+lines.length*6+4;
-  };
   const half=(cw-4)/2;
-  const pacLines=[profile.nome||"—",profile.dataNasc?`Nasc.: ${fmt(profile.dataNasc)}`:"",profile.remedios?`Med.: ${profile.remedios.slice(0,45)}${profile.remedios.length>45?"…":""}`:""  ].filter(Boolean);
-  const medLines=[profile.medico||"—",profile.crm||"",profile.telefone_medico||""].filter(Boolean);
-  const h1=drawCard("Paciente",pacLines,mar,half);
-  drawCard("Médico responsável",medLines,mar+half+4,half);
-  y+=Math.max(h1,10+medLines.length*6+4)+6;
+  const drawInfoCard=(title,lines,x,w)=>{
+    const h=10+lines.length*6+4;
+    doc.setFillColor(26,31,46);doc.roundedRect(x,y,w,h,3,3,"F");
+    doc.setFontSize(7);doc.setFont("helvetica","bold");doc.setTextColor(124,122,118);
+    doc.text(title.toUpperCase(),x+4,y+5);
+    doc.setFontSize(9);doc.setFont("helvetica","normal");doc.setTextColor(232,228,223);
+    lines.forEach((l,i)=>doc.text(l,x+4,y+11+i*6));
+    return h;
+  };
+  const pLines=[profile.nome||"—",profile.dataNasc?`Nasc.: ${fmt(profile.dataNasc)}`:"",profile.remedios?`Med.: ${profile.remedios.slice(0,44)}${profile.remedios.length>44?"…":""}`:""  ].filter(Boolean);
+  const mLines=[profile.medico||"—",profile.crm||"",profile.telefone_medico||""].filter(Boolean);
+  const h1=drawInfoCard("Paciente",pLines,mar,half);
+  drawInfoCard("Médico responsável",mLines,mar+half+4,half);
+  y+=Math.max(h1,10+mLines.length*6+4)+6;
 
-  // ── Médias ──
-  checkY(22);
-  doc.setFillColor(26,31,46);
-  doc.roundedRect(mar,y,cw,20,3,3,"F");
+  checkY(24);
+  doc.setFillColor(26,31,46);doc.roundedRect(mar,y,cw,20,3,3,"F");
   doc.setFontSize(7);doc.setFont("helvetica","bold");doc.setTextColor(124,122,118);
   doc.text("MÉDIAS — ÚLTIMOS 7 REGISTROS",mar+4,y+5);
-  const thirds=cw/3;
-  [{label:"Jejum",val:avgJ+" mg/dL",color:[232,196,160]},{label:"Pós-prandial",val:avgP+" mg/dL",color:[192,132,252]},{label:"Registros totais",val:String(readings.length),color:[96,165,250]}]
+  [{l:"Jejum",v:avgJ+" mg/dL",c:[232,196,160]},{l:"Pós-prandial",v:avgP+" mg/dL",c:[192,132,252]},{l:"Registros totais",v:String(readings.length),c:[96,165,250]}]
     .forEach((item,i)=>{
-      const x=mar+i*thirds;
-      doc.setFontSize(14);doc.setFont("helvetica","bold");doc.setTextColor(...item.color);
-      doc.text(item.val,x+4,y+14);
-      doc.setFontSize(8);doc.setFont("helvetica","normal");doc.setTextColor(150,148,144);
-      doc.text(item.label,x+4,y+19);
+      const x=mar+i*(cw/3);
+      doc.setFontSize(13);doc.setFont("helvetica","bold");doc.setTextColor(...item.c);doc.text(item.v,x+4,y+14);
+      doc.setFontSize(8);doc.setFont("helvetica","normal");doc.setTextColor(150,148,144);doc.text(item.l,x+4,y+19);
     });
   y+=26;
 
-  // ── Tabela de leituras ──
   checkY(20);
-  doc.setFontSize(7);doc.setFont("helvetica","bold");doc.setTextColor(124,122,118);
-  doc.text("HISTÓRICO DE LEITURAS",mar,y);y+=5;
-
-  // Table header
-  doc.setFillColor(30,36,52);
-  doc.rect(mar,y,cw,7,"F");
+  doc.setFontSize(7);doc.setFont("helvetica","bold");doc.setTextColor(124,122,118);doc.text("HISTÓRICO DE LEITURAS",mar,y);y+=5;
+  doc.setFillColor(30,36,52);doc.rect(mar,y,cw,7,"F");
   doc.setFontSize(8);doc.setFont("helvetica","bold");doc.setTextColor(180,178,174);
-  const cols=[mar+2,mar+28,mar+62,mar+96,mar+128];
+  const cols=[mar+2,mar+26,mar+60,mar+94,mar+124];
   ["Data","Jejum","Pós-café","Peso","Observações"].forEach((h,i)=>doc.text(h,cols[i],y+5));
   y+=9;
-
   readings.forEach((r,idx)=>{
     checkY(8);
     if(idx%2===0){doc.setFillColor(22,27,40);doc.rect(mar,y-1,cw,7,"F")}
     const js=glicStatus(r.jejum,"jejum"),ps=glicStatus(r.pos_cafe,"pos");
-    doc.setFontSize(8);doc.setFont("helvetica","normal");doc.setTextColor(200,198,194);
-    doc.text(fmt(r.data),cols[0],y+4);
-
-    if(r.jejum){
-      const c=SC[js];const rgb=c==="＃4ade80"?[74,222,128]:c==="#fbbf24"?[251,191,36]:c==="#f87171"?[248,113,113]:[96,165,250];
-      doc.setTextColor(...hexToRgb(SC[js]));doc.text(`${r.jejum} mg/dL`,cols[1],y+4);
-    }else{doc.setTextColor(80,78,74);doc.text("—",cols[1],y+4)}
-
-    if(r.pos_cafe){doc.setTextColor(...hexToRgb(SC[ps]));doc.text(`${r.pos_cafe} mg/dL`,cols[2],y+4);}
-    else{doc.setTextColor(80,78,74);doc.text("—",cols[2],y+4)}
-
-    doc.setTextColor(96,165,250);
-    doc.text(r.peso?`${r.peso} kg`:"—",cols[3],y+4);
-    doc.setTextColor(150,148,144);
-    if(r.obs)doc.text(r.obs.slice(0,28)+(r.obs.length>28?"…":""),cols[4],y+4);
+    doc.setFontSize(8);doc.setFont("helvetica","normal");doc.setTextColor(200,198,194);doc.text(fmt(r.data),cols[0],y+4);
+    if(r.jejum){doc.setTextColor(...hexToRgb(SC[js]));doc.text(`${r.jejum} mg/dL`,cols[1],y+4);}else{doc.setTextColor(80,78,74);doc.text("—",cols[1],y+4)}
+    if(r.pos_cafe){doc.setTextColor(...hexToRgb(SC[ps]));doc.text(`${r.pos_cafe} mg/dL`,cols[2],y+4);}else{doc.setTextColor(80,78,74);doc.text("—",cols[2],y+4)}
+    doc.setTextColor(96,165,250);doc.text(r.peso?`${r.peso} kg`:"—",cols[3],y+4);
+    doc.setTextColor(150,148,144);if(r.obs)doc.text(r.obs.slice(0,28)+(r.obs.length>28?"…":""),cols[4],y+4);
     y+=7;
   });
   y+=6;
 
-  // ── Reações ──
   if(reactions.length){
     checkY(20);
-    doc.setFontSize(7);doc.setFont("helvetica","bold");doc.setTextColor(124,122,118);
-    doc.text("REAÇÕES REGISTRADAS",mar,y);y+=5;
-    doc.setFillColor(30,36,52);
-    doc.rect(mar,y,cw,7,"F");
+    doc.setFontSize(7);doc.setFont("helvetica","bold");doc.setTextColor(124,122,118);doc.text("REAÇÕES REGISTRADAS",mar,y);y+=5;
+    doc.setFillColor(30,36,52);doc.rect(mar,y,cw,7,"F");
     doc.setFontSize(8);doc.setFont("helvetica","bold");doc.setTextColor(180,178,174);
-    ["Data","Remédio","Sintomas"].forEach((h,i)=>doc.text(h,[mar+2,mar+28,mar+62][i],y+5));
+    ["Data","Remédio","Sintomas"].forEach((h,i)=>doc.text(h,[mar+2,mar+26,mar+60][i],y+5));
     y+=9;
     reactions.forEach((r,idx)=>{
       const text=[...r.chips,r.descricao].filter(Boolean).join(", ");
-      const lines=doc.splitTextToSize(text,90);
-      const rh=Math.max(7,lines.length*5+3);
+      const lines=doc.splitTextToSize(text,90);const rh=Math.max(7,lines.length*5+3);
       checkY(rh);
       if(idx%2===0){doc.setFillColor(22,27,40);doc.rect(mar,y-1,cw,rh,"F")}
       doc.setFontSize(8);doc.setFont("helvetica","normal");
       doc.setTextColor(200,198,194);doc.text(fmt(r.data),mar+2,y+4);
-      doc.setTextColor(150,148,144);doc.text(r.remedio||"—",mar+28,y+4);
-      doc.setTextColor(200,198,194);doc.text(lines,mar+62,y+4);
+      doc.setTextColor(150,148,144);doc.text(r.remedio||"—",mar+26,y+4);
+      doc.setTextColor(200,198,194);doc.text(lines,mar+60,y+4);
       y+=rh;
     });
-    y+=4;
   }
 
-  // ── Footer ──
   doc.setFontSize(7);doc.setTextColor(80,78,74);
-  doc.text("Este relatório foi gerado automaticamente pelo app de monitoramento glicêmico.",mar,288);
-
+  doc.text("Gerado pelo app de monitoramento glicêmico. Não substitui avaliação médica.",mar,288);
   doc.save(`relatorio-glicemia-${todayStr()}.pdf`);
-}
-
-function hexToRgb(hex){
-  const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);
-  return[r,g,b];
 }
 
 // ── HTML Print Report ─────────────────────────────────────────────────────────
 function openPrintReport(profile,readings,reactions,avgJ,avgP){
   const rows=readings.map(r=>{
     const js=glicStatus(r.jejum,"jejum"),ps=glicStatus(r.pos_cafe,"pos");
-    const jColor={ok:"#16a34a",warn:"#d97706",high:"#dc2626",low:"#2563eb"}[js]||"#666";
-    const pColor={ok:"#16a34a",warn:"#d97706",high:"#dc2626",low:"#2563eb"}[ps]||"#666";
-    return `<tr>
-      <td>${fmt(r.data)}</td>
-      <td style="color:${jColor};font-weight:600">${r.jejum?r.jejum+" mg/dL":"—"}${js?` <span class="badge" style="background:${jColor}22;color:${jColor}">${SL[js]}</span>`:""}</td>
-      <td style="color:${pColor};font-weight:600">${r.pos_cafe?r.pos_cafe+" mg/dL":"—"}${ps?` <span class="badge" style="background:${pColor}22;color:${pColor}">${SL[ps]}</span>`:""}</td>
-      <td>${r.peso?r.peso+" kg":"—"}</td>
-      <td class="obs">${r.obs||""}</td>
-    </tr>`;
+    const jc={ok:"#16a34a",warn:"#d97706",high:"#dc2626",low:"#2563eb"}[js]||"#666";
+    const pc={ok:"#16a34a",warn:"#d97706",high:"#dc2626",low:"#2563eb"}[ps]||"#666";
+    return`<tr><td>${fmt(r.data)}</td><td style="color:${jc};font-weight:600">${r.jejum?r.jejum+' mg/dL':"—"}${js?` <span class="badge" style="background:${jc}22;color:${jc}">${SL[js]}</span>`:""}</td><td style="color:${pc};font-weight:600">${r.pos_cafe?r.pos_cafe+' mg/dL':"—"}${ps?` <span class="badge" style="background:${pc}22;color:${pc}">${SL[ps]}</span>`:""}</td><td>${r.peso?r.peso+' kg':"—"}</td><td class="obs">${r.obs||""}</td></tr>`;
   }).join("");
-
-  const rxRows=reactions.map(r=>`<tr>
-    <td>${fmt(r.data)}</td>
-    <td>${r.remedio||"—"}</td>
-    <td>${[...r.chips,r.descricao].filter(Boolean).join(", ")}</td>
-  </tr>`).join("");
-
-  const html=`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Relatório Glicêmico — ${profile.nome||"Paciente"}</title>
+  const rxRows=reactions.map(r=>`<tr><td>${fmt(r.data)}</td><td>${r.remedio||"—"}</td><td>${[...r.chips,r.descricao].filter(Boolean).join(", ")}</td></tr>`).join("");
+  const html=`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Relatório Glicêmico — ${profile.nome||"Paciente"}</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
-<style>
-*{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'DM Sans',sans-serif;color:#1a1a1a;background:#fff;padding:0}
-.page{max-width:800px;margin:0 auto;padding:32px 28px}
-.header{background:linear-gradient(135deg,#1a1f2e,#2d3550);color:#e8c4a0;padding:28px 28px 20px;border-radius:12px;margin-bottom:24px}
-.header h1{font-family:'DM Serif Display',serif;font-size:26px;font-style:italic;margin-bottom:6px}
-.header .meta{font-size:12px;color:#9ca3af;line-height:1.7}
-.two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px}
-.info-card{background:#f8f7f4;border:1px solid #e5e3df;border-radius:10px;padding:16px}
-.info-card h3{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#9c9a96;margin-bottom:10px;font-weight:600}
-.info-card p{font-size:13px;color:#333;line-height:1.8}
-.stats-row{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:24px}
-.stat-card{background:#f8f7f4;border:1px solid #e5e3df;border-radius:10px;padding:14px;text-align:center}
-.stat-card .sv{font-size:24px;font-weight:700;line-height:1}
-.stat-card .sl{font-size:11px;color:#9c9a96;margin-top:6px}
-section{margin-bottom:28px}
-section h2{font-family:'DM Serif Display',serif;font-size:18px;color:#1a1f2e;margin-bottom:12px;padding-bottom:6px;border-bottom:2px solid #e8c4a0}
-table{width:100%;border-collapse:collapse;font-size:13px}
-th{background:#1a1f2e;color:#e8c4a0;padding:9px 10px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.5px;font-weight:600}
-td{padding:9px 10px;border-bottom:1px solid #f0eeeb;vertical-align:top}
-tr:nth-child(even) td{background:#faf9f7}
-.badge{display:inline-block;padding:2px 7px;border-radius:100px;font-size:10px;font-weight:600;margin-left:4px}
-.obs{color:#888;font-size:12px}
-.footer{margin-top:32px;padding-top:16px;border-top:1px solid #e5e3df;font-size:11px;color:#aaa;text-align:center}
-.ref-box{background:#fffbf0;border:1px solid #fde68a;border-radius:8px;padding:12px 14px;font-size:12px;color:#92400e;margin-bottom:20px;line-height:1.6}
-@media print{
-  .no-print{display:none!important}
-  body{padding:0}
-  .page{padding:16px}
-  .header{-webkit-print-color-adjust:exact;print-color-adjust:exact}
-  th{-webkit-print-color-adjust:exact;print-color-adjust:exact}
-}
-</style></head><body>
-<div class="page">
-  <div class="no-print" style="background:#1a1f2e;padding:12px 16px;border-radius:8px;margin-bottom:20px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-    <span style="color:#e8c4a0;font-size:13px;font-weight:600;flex:1">📋 Relatório pronto para impressão ou salvar como PDF</span>
-    <button onclick="window.print()" style="background:#e8c4a0;color:#0f1117;border:none;border-radius:8px;padding:9px 18px;font-size:13px;font-weight:700;cursor:pointer">Imprimir / Salvar PDF</button>
-    <button onclick="window.close()" style="background:rgba(255,255,255,0.1);color:#e8e4df;border:1px solid rgba(255,255,255,0.2);border-radius:8px;padding:9px 14px;font-size:13px;cursor:pointer">Fechar</button>
-  </div>
-
-  <div class="header">
-    <h1>Relatório de Monitoramento Glicêmico</h1>
-    <div class="meta">
-      Gerado em: ${new Date().toLocaleDateString("pt-BR")} às ${new Date().toLocaleTimeString("pt-BR")}<br>
-      Período: ${readings.length?fmt(readings[readings.length-1].data)+" a "+fmt(readings[0].data):"sem registros"}
-    </div>
-  </div>
-
-  <div class="two-col">
-    <div class="info-card">
-      <h3>Paciente</h3>
-      <p><strong>${profile.nome||"—"}</strong><br>
-      ${profile.dataNasc?"Nasc.: "+fmt(profile.dataNasc)+"<br>":""}
-      ${profile.peso_inicial?"Peso inicial: "+profile.peso_inicial+" kg<br>":""}
-      ${profile.remedios?"Medicações: "+profile.remedios:""}</p>
-    </div>
-    <div class="info-card">
-      <h3>Médico responsável</h3>
-      <p><strong>${profile.medico||"—"}</strong><br>
-      ${profile.crm?profile.crm+"<br>":""}
-      ${profile.telefone_medico||""}</p>
-    </div>
-  </div>
-
-  <div class="stats-row">
-    <div class="stat-card"><div class="sv" style="color:#b45309">${avgJ} <span style="font-size:14px">mg/dL</span></div><div class="sl">Média Jejum (7 dias)</div></div>
-    <div class="stat-card"><div class="sv" style="color:#7c3aed">${avgP} <span style="font-size:14px">mg/dL</span></div><div class="sl">Média Pós-prandial (7 dias)</div></div>
-    <div class="stat-card"><div class="sv" style="color:#1a1f2e">${readings.length}</div><div class="sl">Registros totais</div></div>
-  </div>
-
-  <div class="ref-box">
-    <strong>Valores de referência:</strong> Glicemia em jejum normal: 70–99 mg/dL · Glicemia pós-prandial normal (2h após refeição): &lt;140 mg/dL · Pré-diabetes (jejum): 100–125 mg/dL
-  </div>
-
-  ${readings.length?`
-  <section>
-    <h2>Histórico de leituras</h2>
-    <table>
-      <thead><tr><th>Data</th><th>Jejum</th><th>Pós-café (2h)</th><th>Peso</th><th>Observações</th></tr></thead>
-      <tbody>${rows}</tbody>
-    </table>
-  </section>`:""}
-
-  ${reactions.length?`
-  <section>
-    <h2>Reações a medicamentos</h2>
-    <table>
-      <thead><tr><th>Data</th><th>Medicamento</th><th>Sintomas relatados</th></tr></thead>
-      <tbody>${rxRows}</tbody>
-    </table>
-  </section>`:""}
-
-  <div class="footer">
-    Relatório gerado pelo app de Monitoramento Glicêmico · ${new Date().getFullYear()} · Este documento não substitui avaliação médica.
-  </div>
-</div>
-</body></html>`;
-
+<style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:'DM Sans',sans-serif;color:#1a1a1a;background:#fff}.page{max-width:800px;margin:0 auto;padding:32px 28px}.header{background:linear-gradient(135deg,#1a1f2e,#2d3550);color:#e8c4a0;padding:24px 28px;border-radius:12px;margin-bottom:24px}.header h1{font-family:'DM Serif Display',serif;font-size:24px;font-style:italic;margin-bottom:6px}.header .meta{font-size:12px;color:#9ca3af;line-height:1.7}.two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px}.info-card{background:#f8f7f4;border:1px solid #e5e3df;border-radius:10px;padding:16px}.info-card h3{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#9c9a96;margin-bottom:10px;font-weight:600}.info-card p{font-size:13px;color:#333;line-height:1.8}.stats-row{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px}.stat-card{background:#f8f7f4;border:1px solid #e5e3df;border-radius:10px;padding:14px;text-align:center}.stat-card .sv{font-size:22px;font-weight:700}.stat-card .sl{font-size:11px;color:#9c9a96;margin-top:4px}section{margin-bottom:24px}section h2{font-family:'DM Serif Display',serif;font-size:18px;color:#1a1f2e;margin-bottom:12px;padding-bottom:6px;border-bottom:2px solid #e8c4a0}table{width:100%;border-collapse:collapse;font-size:13px}th{background:#1a1f2e;color:#e8c4a0;padding:9px 10px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.5px;font-weight:600}td{padding:9px 10px;border-bottom:1px solid #f0eeeb;vertical-align:top}tr:nth-child(even) td{background:#faf9f7}.badge{display:inline-block;padding:2px 7px;border-radius:100px;font-size:10px;font-weight:600;margin-left:4px}.obs{color:#888;font-size:12px}.ref-box{background:#fffbf0;border:1px solid #fde68a;border-radius:8px;padding:12px 14px;font-size:12px;color:#92400e;margin-bottom:20px;line-height:1.6}.footer{margin-top:28px;padding-top:16px;border-top:1px solid #e5e3df;font-size:11px;color:#aaa;text-align:center}.no-print{margin-bottom:20px;background:#1a1f2e;padding:12px 16px;border-radius:8px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}@media print{.no-print{display:none!important}.header,.header *{-webkit-print-color-adjust:exact;print-color-adjust:exact}th{-webkit-print-color-adjust:exact;print-color-adjust:exact}}</style></head>
+<body><div class="page">
+<div class="no-print"><span style="color:#e8c4a0;font-size:13px;font-weight:600;flex:1">📋 Relatório pronto</span><button onclick="window.print()" style="background:#e8c4a0;color:#0f1117;border:none;border-radius:8px;padding:9px 18px;font-size:13px;font-weight:700;cursor:pointer">Imprimir / Salvar PDF</button><button onclick="window.close()" style="background:rgba(255,255,255,0.1);color:#e8e4df;border:1px solid rgba(255,255,255,0.2);border-radius:8px;padding:9px 14px;font-size:13px;cursor:pointer">Fechar</button></div>
+<div class="header"><h1>Relatório de Monitoramento Glicêmico</h1><div class="meta">Gerado em: ${new Date().toLocaleDateString("pt-BR")} às ${new Date().toLocaleTimeString("pt-BR")}<br>Período: ${readings.length?fmt(readings[readings.length-1].data)+" a "+fmt(readings[0].data):"sem registros"}</div></div>
+<div class="two-col"><div class="info-card"><h3>Paciente</h3><p><strong>${profile.nome||"—"}</strong><br>${profile.dataNasc?"Nasc.: "+fmt(profile.dataNasc)+"<br>":""}${profile.peso_inicial?"Peso inicial: "+profile.peso_inicial+" kg<br>":""}${profile.remedios?"Medicações: "+profile.remedios:""}</p></div>
+<div class="info-card"><h3>Médico responsável</h3><p><strong>${profile.medico||"—"}</strong><br>${profile.crm?profile.crm+"<br>":""}${profile.telefone_medico||""}</p></div></div>
+<div class="stats-row"><div class="stat-card"><div class="sv" style="color:#b45309">${avgJ} <span style="font-size:13px">mg/dL</span></div><div class="sl">Média Jejum (7 dias)</div></div><div class="stat-card"><div class="sv" style="color:#7c3aed">${avgP} <span style="font-size:13px">mg/dL</span></div><div class="sl">Média Pós-prandial (7 dias)</div></div><div class="stat-card"><div class="sv" style="color:#1a1f2e">${readings.length}</div><div class="sl">Registros totais</div></div></div>
+<div class="ref-box"><strong>Valores de referência:</strong> Jejum normal: 70–99 mg/dL · Pós-prandial normal (2h): &lt;140 mg/dL · Pré-diabetes (jejum): 100–125 mg/dL</div>
+${readings.length?`<section><h2>Histórico de leituras</h2><table><thead><tr><th>Data</th><th>Jejum</th><th>Pós-café (2h)</th><th>Peso</th><th>Observações</th></tr></thead><tbody>${rows}</tbody></table></section>`:""}
+${reactions.length?`<section><h2>Reações a medicamentos</h2><table><thead><tr><th>Data</th><th>Medicamento</th><th>Sintomas relatados</th></tr></thead><tbody>${rxRows}</tbody></table></section>`:""}
+<div class="footer">Gerado pelo app de Monitoramento Glicêmico · ${new Date().getFullYear()} · Não substitui avaliação médica.</div>
+</div></body></html>`;
   const w=window.open("","_blank");
   if(w){w.document.write(html);w.document.close();}
   else alert("Permita pop-ups para abrir o relatório.");
 }
 
-// ── Shared components ─────────────────────────────────────────────────────────
+// ── Pill ──────────────────────────────────────────────────────────────────────
 function Pill({val,unit,lbl,color,badge}){
   return React.createElement("div",{className:"stat-pill"},
     React.createElement("div",{className:"val",style:{color:color||"#e8e4df"}},val),
@@ -394,7 +335,7 @@ function Pill({val,unit,lbl,color,badge}){
   );
 }
 
-// ── Setup screen ──────────────────────────────────────────────────────────────
+// ── Setup ─────────────────────────────────────────────────────────────────────
 function Setup({onSave}){
   const[token,setToken]=useState("");const[id,setId]=useState("");const[busy,setBusy]=useState(false);const[err,setErr]=useState("");
   const go=async()=>{
@@ -406,23 +347,30 @@ function Setup({onSave}){
   return React.createElement("div",{className:"setup-wrap"},
     React.createElement("div",{className:"setup-card"},
       React.createElement("h2",null,"Configurar sincronização"),
-      React.createElement("p",null,"Seus dados ficam num Gist privado no GitHub. Configure uma vez só."),
+      React.createElement("p",null,"Dados salvos num Gist privado no GitHub. Configure uma vez só."),
       React.createElement("div",{className:"step"},React.createElement("div",{className:"step-num"},"1"),React.createElement("div",null,"Acesse ",React.createElement("a",{href:"https://github.com/settings/tokens/new",target:"_blank"},"github.com/settings/tokens/new")," · Note: ",React.createElement("strong",null,'"glicemia"')," · Marque apenas ",React.createElement("strong",null,"gist")," · Gerar → Copiar")),
-      React.createElement("div",{className:"step"},React.createElement("div",{className:"step-num"},"2"),React.createElement("div",null,"Acesse ",React.createElement("a",{href:"https://gist.github.com",target:"_blank"},"gist.github.com")," · Criar Gist Secret qualquer · Copiar ID da URL (após o último /)")),
+      React.createElement("div",{className:"step"},React.createElement("div",{className:"step-num"},"2"),React.createElement("div",null,"Acesse ",React.createElement("a",{href:"https://gist.github.com",target:"_blank"},"gist.github.com")," · Criar Gist Secret · Copiar ID da URL")),
       React.createElement("div",{className:"divider"}),
       React.createElement("div",{className:"field"},React.createElement("label",null,"Personal Access Token"),React.createElement("input",{type:"password",placeholder:"ghp_...",value:token,onChange:e=>setToken(e.target.value),autoComplete:"off",autoCorrect:"off",autoCapitalize:"off",spellCheck:"false"})),
       React.createElement("div",{className:"field"},React.createElement("label",null,"Gist ID"),React.createElement("input",{placeholder:"a1b2c3d4...",value:id,onChange:e=>setId(e.target.value),autoComplete:"off",autoCorrect:"off",autoCapitalize:"off",spellCheck:"false"})),
       err&&React.createElement("div",{className:"warn-box"},err),
       React.createElement("button",{className:"btn-primary",onClick:go,disabled:busy},busy?"Testando...":"Conectar")
     ),
-    React.createElement("div",{className:"info-box"},"O token fica salvo só neste dispositivo. Nenhum dado vai para terceiros.")
+    React.createElement("div",{className:"info-box"},"Token salvo só neste dispositivo. Nenhum dado vai para terceiros.")
   );
 }
 
 // ── Dashboard ─────────────────────────────────────────────────────────────────
-function TabDashboard({readings,chartData,last,avgJ,avgP,reactions,onExport}){
+function TabDashboard({readings,last,avgJ,avgP,reactions,onExport}){
   const js=last?.jejum?glicStatus(last.jejum,"jejum"):null;
   const ps=last?.pos_cafe?glicStatus(last.pos_cafe,"pos"):null;
+
+  const chartData=readings.slice(0,14).reverse().map(r=>({
+    label:fmt(r.data).slice(0,5),
+    j:r.jejum?Number(r.jejum):null,
+    p:r.pos_cafe?Number(r.pos_cafe):null
+  }));
+
   return React.createElement(React.Fragment,null,
     React.createElement("p",{className:"section-title"},"Visão geral"),
     last&&React.createElement("div",{className:"card"},
@@ -443,21 +391,7 @@ function TabDashboard({readings,chartData,last,avgJ,avgP,reactions,onExport}){
     ),
     chartData.length>=2&&React.createElement("div",{className:"card"},
       React.createElement("p",{className:"card-title"},"Tendência — últimos 14 dias"),
-      React.createElement("div",{className:"chart-wrap"},
-        React.createElement(ResponsiveContainer,{width:"100%",height:"100%"},
-          React.createElement(LineChart,{data:chartData},
-            React.createElement(CartesianGrid,{strokeDasharray:"3 3",stroke:"rgba(255,255,255,0.05)"}),
-            React.createElement(XAxis,{dataKey:"data",tick:{fontSize:10,fill:"#7c7a76"}}),
-            React.createElement(YAxis,{domain:[60,"auto"],tick:{fontSize:10,fill:"#7c7a76"},width:34}),
-            React.createElement(Tooltip,{contentStyle:{background:"#1a1f2e",border:"1px solid rgba(255,255,255,0.1)",borderRadius:8,fontSize:12}}),
-            React.createElement(ReferenceLine,{y:100,stroke:"#fbbf24",strokeDasharray:"4 4"}),
-            React.createElement(ReferenceLine,{y:140,stroke:"#f87171",strokeDasharray:"4 4"}),
-            React.createElement(Line,{type:"monotone",dataKey:"Jejum",stroke:"#e8c4a0",strokeWidth:2,dot:{r:3},connectNulls:true}),
-            React.createElement(Line,{type:"monotone",dataKey:"Pós-café",stroke:"#c084fc",strokeWidth:2,dot:{r:3},connectNulls:true})
-          )
-        )
-      ),
-      React.createElement("p",{style:{fontSize:11,color:"#5c5a56",marginTop:8}},"Amarela: 100 · Vermelha: 140 mg/dL")
+      React.createElement(LineChart,{data:chartData})
     ),
     reactions.length>0&&React.createElement("div",{className:"card"},
       React.createElement("p",{className:"card-title"},`Última reação — ${fmt(reactions[0].data)}`),
@@ -471,12 +405,12 @@ function TabDashboard({readings,chartData,last,avgJ,avgP,reactions,onExport}){
         React.createElement("div",{className:"export-btn pdf-btn",onClick:()=>onExport("pdf")},
           React.createElement("div",{className:"eb-icon"},"📄"),
           React.createElement("div",{className:"eb-title"},"Baixar PDF"),
-          React.createElement("div",{className:"eb-sub"},"Arquivo para salvar ou enviar por WhatsApp")
+          React.createElement("div",{className:"eb-sub"},"Salvar ou enviar por WhatsApp")
         ),
         React.createElement("div",{className:"export-btn html-btn",onClick:()=>onExport("html")},
           React.createElement("div",{className:"eb-icon"},"🖨️"),
           React.createElement("div",{className:"eb-title"},"Visualizar / Imprimir"),
-          React.createElement("div",{className:"eb-sub"},"Abre página para imprimir ou salvar como PDF")
+          React.createElement("div",{className:"eb-sub"},"Abre para imprimir ou salvar como PDF")
         )
       )
     )
@@ -652,12 +586,11 @@ function App(){
 
   const avgJ=readings.filter(r=>r.jejum).slice(0,7).reduce((s,r,_,a)=>a.length?s+Number(r.jejum)/a.length:s,0).toFixed(0);
   const avgP=readings.filter(r=>r.pos_cafe).slice(0,7).reduce((s,r,_,a)=>a.length?s+Number(r.pos_cafe)/a.length:s,0).toFixed(0);
-  const chartData=readings.slice(0,14).reverse().map(r=>({data:fmt(r.data).slice(0,5),Jejum:r.jejum?Number(r.jejum):undefined,"Pós-café":r.pos_cafe?Number(r.pos_cafe):undefined}));
   const last=readings[0];
 
-  const handleExport=(type)=>{
+  const handleExport=type=>{
     if(type==="pdf"){exportPDF(profile,readings,reactions,avgJ,avgP);showToast("✓ PDF gerado!");}
-    else{openPrintReport(profile,readings,reactions,avgJ,avgP);}
+    else openPrintReport(profile,readings,reactions,avgJ,avgP);
   };
 
   const SLABELS={offline:"sem sync",syncing:"sincronizando…",synced:"sincronizado ✓",error:"erro de sync"};
@@ -682,7 +615,7 @@ function App(){
     ),
     React.createElement("div",{className:"tabs"},TABS.map(t=>React.createElement("button",{key:t,className:`tab-btn ${tab===t?"active":""}`,onClick:()=>setTab(t)},t))),
     React.createElement("div",{className:"content"},
-      tab==="Dashboard"&&React.createElement(TabDashboard,{readings,chartData,last,avgJ,avgP,reactions,onExport:handleExport}),
+      tab==="Dashboard"&&React.createElement(TabDashboard,{readings,last,avgJ,avgP,reactions,onExport:handleExport}),
       tab==="Registrar"&&React.createElement(TabRegistrar,{form,setForm,addReading,saving}),
       tab==="Histórico"&&React.createElement(TabHistorico,{readings,del:delReading}),
       tab==="Reações"&&React.createElement(TabReacoes,{rForm,setRForm,add:addReaction,reactions,del:delReaction,saving}),
