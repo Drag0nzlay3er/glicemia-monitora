@@ -178,12 +178,7 @@ const glicStatus=(v,type)=>{if(!v)return null;const n=Number(v);if(type==="jejum
 const SL={ok:"Normal",warn:"Elevada",high:"Alta",low:"Baixa"};
 const SC={ok:"#4ade80",warn:"#fbbf24",high:"#f87171",low:"#60a5fa"};
 const TABS=["Dashboard","Registrar","Histórico","Perfil"];
-const MEDS=[
-  {id:"rybelsus",name:"Rybelsus",dose:"1 comprimido",time:"06:00",label:"Em jejum ao acordar",color:"#e8c4a0",alarm:"06:00"},
-  {id:"metf_manha",name:"Metformina",dose:"1 comprimido",time:"Após café",label:"Após café da manhã",color:"#60a5fa",alarm:"08:00"},
-  {id:"metf_almoco",name:"Metformina",dose:"1 comprimido",time:"Após almoço",label:"Após almoço",color:"#60a5fa",alarm:"12:30"},
-  {id:"metf_jantar",name:"Metformina",dose:"1 comprimido",time:"Após jantar",label:"Após jantar",color:"#60a5fa",alarm:"19:30"},
-];
+const DEFAULT_MEDS=[];
 const REACTION_CHIPS=["Tontura","Náusea","Dor de cabeça","Suor frio","Tremor","Palpitação","Fraqueza","Visão turva","Irritabilidade","Sonolência","Fome excessiva","Formigamento","Inchaço","Dor abdominal","Sem reações"];
 
 function LineChart({data}){
@@ -233,21 +228,22 @@ function fireNotif(title,body){
     try{new Notification(title,{body,icon:"data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='28' font-size='28'>🩸</text></svg>"})}catch(e){}
   }
 }
-function useAlarmTick(logs){
+function useAlarmTick(logs,meds){
   useEffect(()=>{
-    if(!LS.get("alarms-enabled"))return;
+    if(!LS.get("alarms-enabled")||!meds||!meds.length)return;
     const tick=()=>{
       const now=new Date();
       const hm=`${String(now.getHours()).padStart(2,"0")}:${String(now.getMinutes()).padStart(2,"0")}`;
       const todayLog=logs.find(l=>l.data===todayStr());
-      MEDS.forEach(med=>{if(med.alarm===hm){const taken=todayLog?.meds?.[med.id];if(!taken)fireNotif(`💊 Hora do ${med.name}`,med.label);}});
+      meds.forEach(med=>{if(med.alarm===hm){const taken=todayLog?.meds?.[med.id];if(!taken)fireNotif(`💊 Hora do ${med.name}`,`${med.label} — ${med.dose}`);}});
     };
     const id=setInterval(tick,60000);return()=>clearInterval(id);
-  },[logs]);
+  },[logs,meds]);
 }
 
 function hexToRgb(hex){return[parseInt(hex.slice(1,3),16),parseInt(hex.slice(3,5),16),parseInt(hex.slice(5,7),16)]}
 function exportPDF(profile,logs,avgJ,avgP){
+  const meds=profile.meds||[];
   const {jsPDF}=window.jspdf;
   const doc=new jsPDF({orientation:"portrait",unit:"mm",format:"a4"});
   const W=210,mar=18,cw=W-mar*2;let y=mar;
@@ -285,7 +281,7 @@ function exportPDF(profile,logs,avgJ,avgP){
   ["Data","Jejum","Pós-café","Peso","Remédios","Reações"].forEach((h,i)=>doc.text(h,cols[i],y+5));y+=9;
   logs.forEach((r,idx)=>{
     const rxText=[...(r.rxChips||[]),(r.rxObs||"")].filter(Boolean).join(", ");
-    const medsText=MEDS.filter(m=>r.meds?.[m.id]).map(m=>m.id==="rybelsus"?"Ryb":m.id==="metf_manha"?"M↑":m.id==="metf_almoco"?"M↕":"M↓").join(" ");
+    const medsText=meds.filter(m=>r.meds?.[m.id]).map(m=>m.name.slice(0,6)).join(" ");
     const rxLines=doc.splitTextToSize(rxText||"—",52);
     const rh=Math.max(7,rxLines.length*4.5+3);
     checkY(rh);
@@ -303,11 +299,12 @@ function exportPDF(profile,logs,avgJ,avgP){
   doc.save(`relatorio-glicemia-${todayStr()}.pdf`);
 }
 function openPrintReport(profile,logs,avgJ,avgP){
+  const meds=profile.meds||[];
   const rows=logs.map(r=>{
     const js=glicStatus(r.jejum,"jejum"),ps=glicStatus(r.pos_cafe,"pos");
     const jc={ok:"#16a34a",warn:"#d97706",high:"#dc2626",low:"#2563eb"}[js]||"#666";
     const pc={ok:"#16a34a",warn:"#d97706",high:"#dc2626",low:"#2563eb"}[ps]||"#666";
-    const medsHTML=MEDS.map(m=>`<span style="display:inline-block;padding:2px 7px;border-radius:100px;font-size:10px;margin:1px;background:${r.meds?.[m.id]?"#dcfce7":"#f1f5f9"};color:${r.meds?.[m.id]?"#16a34a":"#94a3b8"}">${r.meds?.[m.id]?"✓":""} ${m.id==="rybelsus"?"Rybelsus":m.time}</span>`).join("");
+    const medsHTML=meds.map(m=>`<span style="display:inline-block;padding:2px 7px;border-radius:100px;font-size:10px;margin:1px;background:${r.meds?.[m.id]?"#dcfce7":"#f1f5f9"};color:${r.meds?.[m.id]?"#16a34a":"#94a3b8"}">${r.meds?.[m.id]?"✓":""} ${m.name}</span>`).join("")||"—";
     const rx=[...(r.rxChips||[]),(r.rxObs||"")].filter(Boolean).join(", ")||"—";
     return`<tr><td>${fmt(r.data)}</td><td style="color:${jc};font-weight:600">${r.jejum?r.jejum+" mg/dL":"—"}</td><td style="color:${pc};font-weight:600">${r.pos_cafe?r.pos_cafe+" mg/dL":"—"}</td><td>${r.peso?r.peso+" kg":"—"}</td><td>${medsHTML}</td><td style="color:#7c3aed;font-size:12px">${rx}</td></tr>`;
   }).join("");
@@ -323,16 +320,16 @@ function Setup({onSave}){
   const go=async()=>{if(!token.trim()||!id.trim()){setErr("Preencha os dois campos.");return}setBusy(true);setErr("");try{await gistLoad(token.trim(),id.trim());onSave(token.trim(),id.trim())}catch(e){setErr("Não conectou: "+e.message)}finally{setBusy(false)}};
   return React.createElement("div",{className:"setup-wrap"},React.createElement("div",{className:"setup-card"},React.createElement("h2",null,"Configurar sincronização"),React.createElement("p",null,"Dados salvos num Gist privado no GitHub. Configure uma vez só."),React.createElement("div",{className:"step"},React.createElement("div",{className:"step-num"},"1"),React.createElement("div",null,"Acesse ",React.createElement("a",{href:"https://github.com/settings/tokens/new",target:"_blank"},"github.com/settings/tokens/new")," · Note: ",React.createElement("strong",null,'"glicemia"')," · Marque apenas ",React.createElement("strong",null,"gist")," · Gerar → Copiar")),React.createElement("div",{className:"step"},React.createElement("div",{className:"step-num"},"2"),React.createElement("div",null,"Acesse ",React.createElement("a",{href:"https://gist.github.com",target:"_blank"},"gist.github.com")," · Criar Gist Secret · Copiar ID da URL")),React.createElement("div",{className:"divider"}),React.createElement("div",{className:"field"},React.createElement("label",null,"Personal Access Token"),React.createElement("input",{type:"password",placeholder:"ghp_...",value:token,onChange:e=>setToken(e.target.value),autoComplete:"off",autoCorrect:"off",autoCapitalize:"off",spellCheck:"false"})),React.createElement("div",{className:"field"},React.createElement("label",null,"Gist ID"),React.createElement("input",{placeholder:"a1b2c3d4...",value:id,onChange:e=>setId(e.target.value),autoComplete:"off",autoCorrect:"off",autoCapitalize:"off",spellCheck:"false"})),err&&React.createElement("div",{className:"warn-box"},err),React.createElement("button",{className:"btn-primary",onClick:go,disabled:busy},busy?"Testando...":"Conectar")),React.createElement("div",{className:"info-box"},"Token salvo só neste dispositivo. Nenhum dado vai para terceiros."));
 }
-function TabDashboard({logs,avgJ,avgP,onExport}){
+function TabDashboard({logs,avgJ,avgP,onExport,meds}){
   const last=logs[0];
   const js=last?.jejum?glicStatus(last.jejum,"jejum"):null;
   const ps=last?.pos_cafe?glicStatus(last.pos_cafe,"pos"):null;
   const chartData=logs.slice(0,14).reverse().map(r=>({label:fmt(r.data).slice(0,5),j:r.jejum?Number(r.jejum):null,p:r.pos_cafe?Number(r.pos_cafe):null}));
   const todayLog=logs.find(l=>l.data===todayStr());
-  const takenCount=MEDS.filter(m=>todayLog?.meds?.[m.id]).length;
+  const takenCount=meds.filter(m=>todayLog?.meds?.[m.id]).length;
   return React.createElement(React.Fragment,null,
     React.createElement("p",{className:"section-title"},"Visão geral"),
-    React.createElement("div",{className:"card"},React.createElement("p",{className:"card-title"},"Remédios hoje"),React.createElement("div",{style:{display:"flex",alignItems:"center",gap:12}},React.createElement("div",{style:{fontSize:28,fontWeight:700,color:takenCount===MEDS.length?"#4ade80":"#e8c4a0"}},`${takenCount}/${MEDS.length}`),React.createElement("div",null,React.createElement("div",{style:{fontSize:13,color:"#e8e4df",fontWeight:500}},takenCount===MEDS.length?"Todos tomados ✓":"Pendentes"),React.createElement("div",{style:{fontSize:11,color:"#7c7a76",marginTop:2}},MEDS.filter(m=>!todayLog?.meds?.[m.id]).map(m=>m.time).join(" · ")||"Tudo certo!")))),
+    meds.length>0&&React.createElement("div",{className:"card"},React.createElement("p",{className:"card-title"},"Remédios hoje"),React.createElement("div",{style:{display:"flex",alignItems:"center",gap:12}},React.createElement("div",{style:{fontSize:28,fontWeight:700,color:takenCount===meds.length?"#4ade80":"#e8c4a0"}},`${takenCount}/${meds.length}`),React.createElement("div",null,React.createElement("div",{style:{fontSize:13,color:"#e8e4df",fontWeight:500}},takenCount===meds.length?"Todos tomados ✓":"Pendentes"),React.createElement("div",{style:{fontSize:11,color:"#7c7a76",marginTop:2}},meds.filter(m=>!todayLog?.meds?.[m.id]).map(m=>m.alarm).join(" · ")||"Tudo certo!")))),
     last&&React.createElement("div",{className:"card"},React.createElement("p",{className:"card-title"},`Último registro — ${fmt(last.data)}`),React.createElement("div",{className:"stat-row"},last.jejum&&React.createElement(Pill,{val:last.jejum,unit:"mg/dL",lbl:"Jejum",color:SC[js],badge:{c:SC[js],l:SL[js]}}),last.pos_cafe&&React.createElement(Pill,{val:last.pos_cafe,unit:"mg/dL",lbl:"Pós-café",color:SC[ps],badge:{c:SC[ps],l:SL[ps]}}),last.peso&&React.createElement(Pill,{val:last.peso,unit:"kg",lbl:"Peso",color:"#60a5fa"}))),
     logs.length>=2&&React.createElement("div",{className:"card"},React.createElement("p",{className:"card-title"},"Média — últimos 7 dias"),React.createElement("div",{className:"stat-row"},React.createElement(Pill,{val:avgJ,unit:"mg/dL",lbl:"Jejum",color:"#e8c4a0"}),React.createElement(Pill,{val:avgP,unit:"mg/dL",lbl:"Pós-café",color:"#c084fc"}),React.createElement(Pill,{val:logs.length,unit:"dias",lbl:"Registros",color:"#5c5a56"}))),
     chartData.length>=2&&React.createElement("div",{className:"card"},React.createElement("p",{className:"card-title"},"Tendência — últimos 14 dias"),React.createElement(LineChart,{data:chartData})),
@@ -340,7 +337,7 @@ function TabDashboard({logs,avgJ,avgP,onExport}){
     logs.length>0&&React.createElement(React.Fragment,null,React.createElement("p",{className:"card-title",style:{marginTop:8,marginBottom:10}},"EXPORTAR RELATÓRIO"),React.createElement("div",{className:"export-grid"},React.createElement("div",{className:"export-btn pdf-btn",onClick:()=>onExport("pdf")},React.createElement("div",{className:"eb-icon"},"📄"),React.createElement("div",{className:"eb-title"},"Baixar PDF"),React.createElement("div",{className:"eb-sub"},"Salvar ou enviar por WhatsApp")),React.createElement("div",{className:"export-btn html-btn",onClick:()=>onExport("html")},React.createElement("div",{className:"eb-icon"},"🖨️"),React.createElement("div",{className:"eb-title"},"Visualizar / Imprimir"),React.createElement("div",{className:"eb-sub"},"Abre para imprimir ou salvar PDF"))))
   );
 }
-function TabRegistrar({logs,setLogs,sync,profile,saving,showToast,editLog,clearEdit}){
+function TabRegistrar({logs,setLogs,sync,profile,saving,showToast,editLog,clearEdit,meds}){
   const blank=()=>({data:todayStr(),jejum:"",pos_cafe:"",peso:"",obs:"",meds:{},rxChips:[],rxObs:""});
   const[form,setForm]=useState(()=>editLog||logs.find(l=>l.data===todayStr())||blank());
   const[notifAsked,setNotifAsked]=useState(!!LS.get("alarms-enabled"));
@@ -363,7 +360,7 @@ function TabRegistrar({logs,setLogs,sync,profile,saving,showToast,editLog,clearE
     React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}},React.createElement("p",{className:"section-title",style:{marginBottom:0}},isEditing?`Editando — ${fmt(form.data)}`:"Registro de hoje"),isEditing&&React.createElement("button",{onClick:()=>{if(clearEdit)clearEdit();setForm(logs.find(l=>l.data===todayStr())||blank());},style:{background:"rgba(255,255,255,0.07)",border:"1px solid rgba(255,255,255,0.1)",borderRadius:8,padding:"6px 12px",fontSize:12,color:"#9c9a96",cursor:"pointer",fontFamily:"'DM Sans',sans-serif"}},"✕ Cancelar")),
     !notifAsked&&React.createElement("div",{className:"alarm-banner"},React.createElement("div",{className:"icon"},"🔔"),React.createElement("div",{className:"text"},React.createElement("div",{className:"title"},"Ativar alertas de remédios"),React.createElement("div",{className:"sub"},"Notificações nos horários certos")),React.createElement("button",{onClick:enableNotifs,style:{background:"#fbbf24",color:"#0f1117",border:"none",borderRadius:8,padding:"8px 14px",fontSize:12,fontWeight:700,cursor:"pointer",flexShrink:0,fontFamily:"'DM Sans',sans-serif"}},"Ativar")),
     React.createElement("div",{className:"card"},React.createElement("p",{className:"card-title"},"Data"),React.createElement("div",{className:"field"},React.createElement("input",{type:"date",value:form.data,onChange:f("data")}))),
-    React.createElement("div",{className:"card"},React.createElement("p",{className:"card-title"},"Remédios tomados"),MEDS.map(med=>React.createElement("div",{key:med.id,className:`med-item ${form.meds?.[med.id]?"taken":""}`,onClick:()=>toggleMed(med.id)},React.createElement("div",{className:"med-check"},form.meds?.[med.id]&&"✓"),React.createElement("div",{className:"med-info"},React.createElement("div",{className:"med-name"},med.name," ",React.createElement("span",{style:{fontSize:11,fontWeight:400,color:form.meds?.[med.id]?"#4ade8099":"#5c5a56"}},med.dose)),React.createElement("div",{className:"med-time"},med.label)),React.createElement("div",{style:{fontSize:12,color:form.meds?.[med.id]?"#4ade80":"#5c5a56",flexShrink:0}},med.alarm)))),
+    meds.length>0&&React.createElement("div",{className:"card"},React.createElement("p",{className:"card-title"},"Remédios tomados"),meds.map(med=>React.createElement("div",{key:med.id,className:`med-item ${form.meds?.[med.id]?"taken":""}`,onClick:()=>toggleMed(med.id)},React.createElement("div",{className:"med-check"},form.meds?.[med.id]&&"✓"),React.createElement("div",{className:"med-info"},React.createElement("div",{className:"med-name"},med.name," ",React.createElement("span",{style:{fontSize:11,fontWeight:400,color:form.meds?.[med.id]?"#4ade8099":"#5c5a56"}},med.dose)),React.createElement("div",{className:"med-time"},med.label)),React.createElement("div",{style:{fontSize:12,color:form.meds?.[med.id]?"#4ade80":"#5c5a56",flexShrink:0}},med.alarm)))),
     React.createElement("div",{className:"card"},React.createElement("p",{className:"card-title"},"Glicemia"),React.createElement("div",{className:"row-2"},React.createElement("div",{className:"field"},React.createElement("label",null,"Jejum (ao acordar)"),React.createElement("input",{type:"number",placeholder:"95",value:form.jejum,onChange:f("jejum"),inputMode:"numeric"}),js&&React.createElement("p",{style:{fontSize:11,marginTop:4,color:SC[js]}},SL[js])),React.createElement("div",{className:"field"},React.createElement("label",null,"Pós-café (2h depois)"),React.createElement("input",{type:"number",placeholder:"130",value:form.pos_cafe,onChange:f("pos_cafe"),inputMode:"numeric"}),ps&&React.createElement("p",{style:{fontSize:11,marginTop:4,color:SC[ps]}},SL[ps])))),
     React.createElement("div",{className:"card"},React.createElement("p",{className:"card-title"},"Peso"),React.createElement("div",{className:"field"},React.createElement("label",null,"Peso (kg)"),React.createElement("input",{type:"number",placeholder:"72.5",value:form.peso,onChange:f("peso"),inputMode:"decimal",step:"0.1"}))),
     React.createElement("div",{className:"card"},React.createElement("p",{className:"card-title"},"Reações / sintomas"),React.createElement("div",{className:"chip-grid"},REACTION_CHIPS.map(c=>React.createElement("button",{key:c,className:`chip ${form.rxChips?.includes(c)?"selected":""}`,onClick:()=>toggleChip(c)},c))),React.createElement("div",{className:"field"},React.createElement("label",null,"Observações adicionais"),React.createElement("textarea",{placeholder:"ex: dor de cabeça forte por volta das 10h...",value:form.rxObs||"",onChange:f("rxObs")}))),
@@ -371,13 +368,13 @@ function TabRegistrar({logs,setLogs,sync,profile,saving,showToast,editLog,clearE
     React.createElement("button",{className:"btn-primary",onClick:save,disabled:saving},saving?"Salvando...":(isEditing?"Atualizar registro":"Salvar registro do dia"))
   );
 }
-function TabHistorico({logs,setLogs,sync,onEdit}){
+function TabHistorico({logs,setLogs,sync,onEdit,meds}){
   if(!logs.length)return React.createElement("div",{className:"empty"},React.createElement("div",{className:"icon"},"📋"),React.createElement("p",null,"Nenhum registro ainda."));
   const del=async id=>{const upd=logs.filter(r=>r.id!==id);setLogs(upd);await sync(upd);};
   return React.createElement(React.Fragment,null,React.createElement("p",{className:"section-title"},"Histórico"),
     logs.map(r=>{
       const js=glicStatus(r.jejum,"jejum"),ps=glicStatus(r.pos_cafe,"pos");
-      const takenMeds=MEDS.filter(m=>r.meds?.[m.id]);
+      const takenMeds=meds.filter(m=>r.meds?.[m.id]);
       const rxAll=[...(r.rxChips||[]),(r.rxObs||"")].filter(Boolean);
       return React.createElement("div",{className:"list-item",key:r.id},
         React.createElement("button",{className:"del-btn",onClick:()=>del(r.id)},"✕"),
@@ -391,14 +388,75 @@ function TabHistorico({logs,setLogs,sync,onEdit}){
     })
   );
 }
-function TabPerfil({profile,setProfile,save,saving,resetGist,onExport}){
+function TabPerfil({profile,setProfile,save,saving,resetGist,onExport,meds}){
   const f=k=>e=>setProfile(p=>({...p,[k]:e.target.value}));
   const isIOS=/iphone|ipad|ipod/i.test(navigator.userAgent);
+  const blankMed=()=>({id:"med_"+Date.now(),name:"",dose:"",label:"",alarm:""});
+  const[newMed,setNewMed]=useState(blankMed());
+  const[editingId,setEditingId]=useState(null);
+  const nm=k=>e=>setNewMed(p=>({...p,[k]:e.target.value}));
+
+  const addMed=()=>{
+    if(!newMed.name.trim()||!newMed.alarm.trim())return;
+    const med={...newMed,id:"med_"+Date.now(),label:newMed.label||newMed.name};
+    setProfile(p=>({...p,meds:[...(p.meds||[]),med]}));
+    setNewMed(blankMed());
+  };
+  const removeMed=id=>setProfile(p=>({...p,meds:(p.meds||[]).filter(m=>m.id!==id)}));
+
   return React.createElement(React.Fragment,null,
     React.createElement("p",{className:"section-title"},"Perfil"),
     isIOS&&React.createElement("div",{className:"install-banner"},React.createElement("div",{className:"icon"},"📲"),React.createElement("div",null,React.createElement("strong",null,"Instalar como app no iPhone"),React.createElement("p",null,'Toque em Compartilhar (⎋) → "Adicionar à Tela de Início"'))),
-    React.createElement("div",{className:"card"},React.createElement("p",{className:"card-title"},"Paciente"),React.createElement("div",{className:"field"},React.createElement("label",null,"Nome completo"),React.createElement("input",{value:profile.nome,onChange:f("nome"),placeholder:"Nome"})),React.createElement("div",{className:"row-2"},React.createElement("div",{className:"field"},React.createElement("label",null,"Data de nascimento"),React.createElement("input",{type:"date",value:profile.dataNasc,onChange:f("dataNasc")})),React.createElement("div",{className:"field"},React.createElement("label",null,"Peso inicial (kg)"),React.createElement("input",{type:"number",value:profile.peso_inicial,onChange:f("peso_inicial"),step:"0.1",inputMode:"decimal"}))),React.createElement("div",{className:"field"},React.createElement("label",null,"Medicações"),React.createElement("textarea",{value:profile.remedios,onChange:f("remedios"),placeholder:"ex: Rybelsus 14mg, Metformina 500mg..."}))),
-    React.createElement("div",{className:"card"},React.createElement("p",{className:"card-title"},"Médico"),React.createElement("div",{className:"field"},React.createElement("label",null,"Nome"),React.createElement("input",{value:profile.medico,onChange:f("medico"),placeholder:"Dr(a)."})),React.createElement("div",{className:"row-2"},React.createElement("div",{className:"field"},React.createElement("label",null,"CRM"),React.createElement("input",{value:profile.crm,onChange:f("crm"),placeholder:"CRM/RS 00000"})),React.createElement("div",{className:"field"},React.createElement("label",null,"Telefone"),React.createElement("input",{value:profile.telefone_medico,onChange:f("telefone_medico"),placeholder:"(51) 9...",type:"tel"})))),
+
+    // Dados pessoais
+    React.createElement("div",{className:"card"},
+      React.createElement("p",{className:"card-title"},"Paciente"),
+      React.createElement("div",{className:"field"},React.createElement("label",null,"Nome completo"),React.createElement("input",{value:profile.nome,onChange:f("nome"),placeholder:"Nome"})),
+      React.createElement("div",{className:"row-2"},
+        React.createElement("div",{className:"field"},React.createElement("label",null,"Data de nascimento"),React.createElement("input",{type:"date",value:profile.dataNasc,onChange:f("dataNasc")})),
+        React.createElement("div",{className:"field"},React.createElement("label",null,"Peso inicial (kg)"),React.createElement("input",{type:"number",value:profile.peso_inicial,onChange:f("peso_inicial"),step:"0.1",inputMode:"decimal"}))
+      )
+    ),
+
+    // Médico
+    React.createElement("div",{className:"card"},
+      React.createElement("p",{className:"card-title"},"Médico"),
+      React.createElement("div",{className:"field"},React.createElement("label",null,"Nome"),React.createElement("input",{value:profile.medico,onChange:f("medico"),placeholder:"Dr(a)."})),
+      React.createElement("div",{className:"row-2"},
+        React.createElement("div",{className:"field"},React.createElement("label",null,"CRM"),React.createElement("input",{value:profile.crm,onChange:f("crm"),placeholder:"CRM/RS 00000"})),
+        React.createElement("div",{className:"field"},React.createElement("label",null,"Telefone"),React.createElement("input",{value:profile.telefone_medico,onChange:f("telefone_medico"),placeholder:"(51) 9...",type:"tel"}))
+      )
+    ),
+
+    // Gerenciador de remédios
+    React.createElement("div",{className:"card"},
+      React.createElement("p",{className:"card-title"},"Remédios"),
+
+      // Lista dos cadastrados
+      meds.length===0&&React.createElement("p",{style:{fontSize:13,color:"#5c5a56",marginBottom:12}},"Nenhum remédio cadastrado ainda."),
+      meds.map(m=>React.createElement("div",{key:m.id,style:{display:"flex",alignItems:"center",gap:10,padding:"10px 0",borderBottom:"1px solid rgba(255,255,255,0.05)"}},
+        React.createElement("div",{style:{flex:1}},
+          React.createElement("div",{style:{fontSize:14,fontWeight:600,color:"#e8e4df"}},m.name," ",React.createElement("span",{style:{fontSize:11,color:"#7c7a76",fontWeight:400}},m.dose)),
+          React.createElement("div",{style:{fontSize:11,color:"#7c7a76",marginTop:2}},`${m.label||m.name} · ${m.alarm}`)
+        ),
+        React.createElement("button",{onClick:()=>removeMed(m.id),style:{background:"none",border:"none",color:"#f87171",cursor:"pointer",fontSize:18,padding:"4px",flexShrink:0}},"✕")
+      )),
+
+      // Formulário novo remédio
+      React.createElement("div",{style:{marginTop:14,paddingTop:14,borderTop:"1px solid rgba(255,255,255,0.06)"}},
+        React.createElement("p",{style:{fontSize:11,color:"#7c7a76",textTransform:"uppercase",letterSpacing:"1px",fontWeight:600,marginBottom:10}},"Adicionar remédio"),
+        React.createElement("div",{className:"row-2"},
+          React.createElement("div",{className:"field"},React.createElement("label",null,"Nome"),React.createElement("input",{placeholder:"ex: Metformina",value:newMed.name,onChange:nm("name")})),
+          React.createElement("div",{className:"field"},React.createElement("label",null,"Dose"),React.createElement("input",{placeholder:"ex: 500mg",value:newMed.dose,onChange:nm("dose")}))
+        ),
+        React.createElement("div",{className:"row-2"},
+          React.createElement("div",{className:"field"},React.createElement("label",null,"Quando tomar"),React.createElement("input",{placeholder:"ex: Após almoço",value:newMed.label,onChange:nm("label")})),
+          React.createElement("div",{className:"field"},React.createElement("label",null,"Horário do alerta"),React.createElement("input",{type:"time",value:newMed.alarm,onChange:nm("alarm")}))
+        ),
+        React.createElement("button",{onClick:addMed,style:{width:"100%",background:"rgba(232,196,160,0.15)",border:"1px solid rgba(232,196,160,0.3)",borderRadius:10,padding:"11px",fontSize:13,fontWeight:600,color:"#e8c4a0",cursor:"pointer",fontFamily:"'DM Sans',sans-serif"}},"+ Adicionar remédio")
+      )
+    ),
+
     React.createElement("button",{className:"btn-primary",onClick:save,disabled:saving},saving?"Salvando...":"Salvar perfil"),
     React.createElement("button",{className:"btn-secondary",onClick:()=>onExport("pdf")},"📄 Baixar relatório PDF"),
     React.createElement("button",{className:"btn-secondary",onClick:()=>onExport("html")},"🖨️ Visualizar / Imprimir relatório"),
@@ -413,7 +471,7 @@ function App(){
   const[token,setToken]=useState(()=>LS.get("gist-token")||"");
   const[gistId,setGistId]=useState(()=>LS.get("gist-id")||"");
   const configured=!!(token&&gistId);
-  const[profile,setProfile]=useState({nome:"",dataNasc:"",peso_inicial:"",medico:"",crm:"",telefone_medico:"",remedios:"Rybelsus 14mg · Metformina 500mg"});
+  const[profile,setProfile]=useState({nome:"",dataNasc:"",peso_inicial:"",medico:"",crm:"",telefone_medico:"",remedios:"",meds:[]});
   const[logs,setLogs]=useState([]);
   const[loaded,setLoaded]=useState(false);
   const[saving,setSaving]=useState(false);
@@ -421,7 +479,8 @@ function App(){
   const handleEdit=useCallback((log)=>{setEditLog(log);setTab("Registrar");},[]);
   const clearEdit=useCallback(()=>{setEditLog(null);},[]);
   const showToast=useCallback((msg,type="success")=>{setToast({msg,type});setTimeout(()=>setToast(null),2800)},[]);
-  useAlarmTick(logs);
+  const meds=profile.meds||[];
+  useAlarmTick(logs,meds);
   useEffect(()=>{
     if(!configured){setLoaded(true);return}
     setSyncStatus("syncing");
@@ -454,10 +513,10 @@ function App(){
     React.createElement("div",{className:"header"},React.createElement("h1",null,"🩸 Monitoramento Glicêmico"),React.createElement("div",{className:"header-row"},React.createElement("p",null,`${profile.nome||"Configure o perfil"} · ${hDate}`),React.createElement("span",{className:`sync-badge ${syncStatus}`},SLABELS[syncStatus]))),
     React.createElement("div",{className:"tabs"},TABS.map(t=>React.createElement("button",{key:t,className:`tab-btn ${tab===t?"active":""}`,onClick:()=>setTab(t)},t))),
     React.createElement("div",{className:"content"},
-      tab==="Dashboard"&&React.createElement(TabDashboard,{logs,avgJ,avgP,onExport:handleExport}),
-      tab==="Registrar"&&React.createElement(TabRegistrar,{logs,setLogs,sync:syncLogs,profile,saving,showToast,editLog,clearEdit}),
-      tab==="Histórico"&&React.createElement(TabHistorico,{logs,setLogs,sync:syncLogs,onEdit:handleEdit}),
-      tab==="Perfil"&&React.createElement(TabPerfil,{profile,setProfile,save:saveProfile,saving,resetGist,onExport:handleExport})
+      tab==="Dashboard"&&React.createElement(TabDashboard,{logs,avgJ,avgP,onExport:handleExport,meds}),
+      tab==="Registrar"&&React.createElement(TabRegistrar,{logs,setLogs,sync:syncLogs,profile,saving,showToast,editLog,clearEdit,meds}),
+      tab==="Histórico"&&React.createElement(TabHistorico,{logs,setLogs,sync:syncLogs,onEdit:handleEdit,meds}),
+      tab==="Perfil"&&React.createElement(TabPerfil,{profile,setProfile,save:saveProfile,saving,resetGist,onExport:handleExport,meds})
     ),
     toast&&React.createElement("div",{className:`toast ${toast.type}`},toast.msg)
   );
