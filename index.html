@@ -3,203 +3,131 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="theme-color" content="#0f1117">
 <title>Monitoramento Glicêmico</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <style>
-/* Estilos Base */
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-body{background:#0f1117;color:#e8e4df;font-family:'DM Sans',sans-serif;min-height:100dvh;overscroll-behavior:none}
-.app{max-width:480px;margin:0 auto;min-height:100dvh;display:flex;flex-direction:column}
-.header{padding:calc(env(safe-area-inset-top,0px) + 20px) 20px 16px;background:linear-gradient(160deg,#1a1f2e 0%,#0f1117 100%);border-bottom:1px solid rgba(255,255,255,0.06)}
-.header h1{font-family:'DM Serif Display',serif;font-size:22px;color:#e8c4a0}
-.sync-badge{font-size:11px;padding:3px 10px;border-radius:100px;font-weight:600}
-.sync-badge.synced{background:rgba(74,222,128,0.15);color:#4ade80}
-.tabs{display:flex;background:#0f1117;border-bottom:1px solid rgba(255,255,255,0.06);position:sticky;top:0;z-index:10}
-.tab-btn{flex:1;padding:15px;font-size:13px;color:#5c5a56;background:none;border:none;cursor:pointer;border-bottom:2px solid transparent}
-.tab-btn.active{color:#e8c4a0;border-bottom-color:#e8c4a0}
-.content{padding:20px;flex:1;padding-bottom:calc(env(safe-area-inset-bottom,0px) + 24px)}
-.card{background:#1a1f2e;border:1px solid rgba(255,255,255,0.07);border-radius:16px;padding:18px;margin-bottom:14px}
-.stat-pill{flex:1;background:rgba(255,255,255,0.04);border-radius:12px;padding:14px;text-align:center}
-.stat-pill .val{font-size:26px;font-weight:600}
-.btn-primary{width:100%;background:linear-gradient(135deg,#e8c4a0 0%,#d4a574 100%);color:#0f1117;border:none;border-radius:12px;padding:15px;font-weight:600;cursor:pointer}
-.field input{width:100%;background:#252b3b;border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:12px;color:#fff;margin-top:5px;font-size:16px}
-/* ... outros estilos mantidos do original para brevidade ... */
-.list-item{background:rgba(255,255,255,0.03);padding:14px;border-radius:12px;margin-bottom:10px}
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    body{background:#0f1117;color:#e8e4df;font-family:'DM Sans',sans-serif;min-height:100dvh}
+    .app{max-width:480px;margin:0 auto;padding-bottom:80px}
+    .header{padding:40px 20px 20px;background:#1a1f2e;border-bottom:1px solid rgba(255,255,255,0.05)}
+    .card{background:#1a1f2e;border-radius:16px;padding:20px;margin:20px;border:1px solid rgba(255,255,255,0.1)}
+    .stat-row{display:flex;gap:10px;margin-top:10px}
+    .stat-pill{flex:1;background:rgba(255,255,255,0.05);padding:15px;border-radius:12px;text-align:center}
+    .val{font-size:28px;font-weight:700;color:#e8c4a0}
+    .tabs{position:fixed;bottom:0;width:100%;max-width:480px;display:flex;background:#1a1f2e;border-top:1px solid rgba(255,255,255,0.1)}
+    .tab-btn{flex:1;padding:20px;color:#7c7a76;background:none;border:none;font-weight:600}
+    .tab-btn.active{color:#e8c4a0}
+    .btn-primary{width:100%;padding:15px;background:#e8c4a0;color:#0f1117;border:none;border-radius:12px;font-weight:700;cursor:pointer}
+    .field input{width:100%;padding:12px;background:#252b3b;border:1px solid rgba(255,255,255,0.1);color:#fff;border-radius:8px;margin-top:8px;font-size:16px}
 </style>
 </head>
 <body>
 <div id="root"></div>
-
 <script>
 const {useState, useEffect, useCallback} = React;
+
 const LS = {
-    get: k => { try { const r = localStorage.getItem(k); return r ? JSON.parse(r) : null } catch { return null } },
-    set: (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)) } catch { } }
+    get: k => JSON.parse(localStorage.getItem(k)),
+    set: (k, v) => localStorage.setItem(k, JSON.stringify(v))
 };
 
-const GIST_FILE = "glicemia-data.json";
-
-// Lógica de API
-async function gistLoad(token, id) {
-    const r = await fetch(`https://api.github.com/gists/${id}`, { headers: { Authorization: `token ${token}` } });
-    if (!r.ok) throw new Error("Erro ao carregar");
-    const d = await r.json();
-    return d.files[GIST_FILE] ? JSON.parse(d.files[GIST_FILE].content) : null;
-}
-
-async function gistSave(token, id, payload) {
-    await fetch(`https://api.github.com/gists/${id}`, {
-        method: "PATCH",
-        headers: { Authorization: `token ${token}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ files: { [GIST_FILE]: { content: JSON.stringify(payload) } } })
-    });
-}
-
 function App() {
-    // 1. Tentar capturar chaves da URL (Para quando você manda o link)
-    const urlParams = new URLSearchParams(window.location.search);
-    const urlToken = urlParams.get('token');
-    const urlId = urlParams.get('id');
-
-    if (urlToken && urlId) {
-        LS.set("gist-token", urlToken);
-        LS.set("gist-id", urlId);
-        window.history.replaceState({}, '', window.location.pathname);
-    }
-
-    const [token] = useState(LS.get("gist-token") || "");
-    const [gistId] = useState(LS.get("gist-id") || "");
-    const [profiles, setProfiles] = useState([]);
-    const [activeProfile, setActiveProfile] = useState(null);
-    const [activeTab, setActiveTab] = useState("Dashboard");
+    // Tenta pegar da URL
+    const params = new URLSearchParams(window.location.search);
+    const [token, setToken] = useState(params.get('token') || LS.get('gist-token') || "");
+    const [id, setId] = useState(params.get('id') || LS.get('gist-id') || "");
+    
+    const [data, setData] = useState(null);
+    const [tab, setTab] = useState("Dashboard");
     const [loading, setLoading] = useState(true);
 
-    const init = useCallback(async () => {
-        if (!token || !gistId) { setLoading(false); return; }
+    // Salva no LS se veio da URL
+    useEffect(() => {
+        if (params.get('token')) LS.set('gist-token', params.get('token'));
+        if (params.get('id')) LS.set('gist-id', params.get('id'));
+    }, []);
+
+    const fetchData = useCallback(async () => {
+        if (!token || !id) { setLoading(false); return; }
         try {
-            let data = await gistLoad(token, gistId);
-            
-            // SE O GIST ESTIVER VAZIO, CRIA O PERFIL PADRÃO
-            if (!data || !data.profiles || data.profiles.length === 0) {
-                const defaultData = {
-                    profiles: [{
-                        id: "admin",
-                        nome: "Wagner",
-                        isAdmin: true,
-                        logs: [],
-                        meds: []
-                    }]
-                };
-                await gistSave(token, gistId, defaultData);
-                data = defaultData;
-            }
-            
-            setProfiles(data.profiles);
-            setActiveProfile(data.profiles[0]);
+            const r = await fetch(`https://api.github.com/gists/${id}`, {
+                headers: { Authorization: `token ${token}` }
+            });
+            const g = await r.json();
+            const content = g.files["glicemia-data.json"]?.content;
+            if (content) setData(JSON.parse(content));
+            else setData({ profiles: [{ id:1, nome: "Wagner", logs: [] }] });
         } catch (e) {
             console.error(e);
         } finally {
             setLoading(false);
         }
-    }, [token, gistId]);
+    }, [token, id]);
 
-    useEffect(() => { init(); }, [init]);
+    useEffect(() => { fetchData(); }, [fetchData]);
 
-    const saveUpdate = async (updatedProfile) => {
-        const newProfiles = profiles.map(p => p.id === updatedProfile.id ? updatedProfile : p);
-        setProfiles(newProfiles);
-        setActiveProfile(updatedProfile);
-        await gistSave(token, gistId, { profiles: newProfiles });
-    };
-
-    if (loading) return React.createElement("div", {style:{color:'#fff', padding:40}}, "Carregando dados...");
-    if (!token) return React.createElement("div", {style:{color:'#fff', padding:40}}, "Configuração necessária. Use o link com ?token=...&id=...");
-
-    const renderDashboard = () => {
-        const logs = activeProfile.logs || [];
-        const last7 = logs.slice(0, 7);
-        const avgJ = last7.length ? Math.round(last7.reduce((a, b) => a + (Number(b.jejum) || 0), 0) / (last7.filter(l=>l.jejum).length || 1)) : 0;
-        const avgP = last7.length ? Math.round(last7.reduce((a, b) => a + (Number(b.pos_cafe) || 0), 0) / (last7.filter(l=>l.pos_cafe).length || 1)) : 0;
-
-        return React.createElement("div", null,
-            React.createElement("div", { className: "card" },
-                React.createElement("div", { style: { fontSize: 11, marginBottom: 10, color: '#7c7a76' } }, "MÉDIAS RECENTES"),
-                React.createElement("div", { style: { display: 'flex', gap: 10 } },
-                    React.createElement("div", { className: "stat-pill" }, 
-                        React.createElement("div", { className: "val", style: { color: '#e8c4a0' } }, avgJ || "—"),
-                        React.createElement("div", { style: { fontSize: 11 } }, "Jejum")
-                    ),
-                    React.createElement("div", { className: "stat-pill" }, 
-                        React.createElement("div", { className: "val", style: { color: '#c084fc' } }, avgP || "—"),
-                        React.createElement("div", { style: { fontSize: 11 } }, "Pós-Café")
-                    )
-                )
-            ),
-            React.createElement("div", { className: "card" },
-                React.createElement("div", { style: { fontSize: 11, marginBottom: 10, color: '#7c7a76' } }, "ULTIMOS REGISTROS"),
-                logs.length === 0 ? "Nenhum dado." : logs.slice(0,3).map((l,i) => 
-                    React.createElement("div", {key:i, className:"list-item"}, `${l.data}: Jejum ${l.jejum || '—'} | Pós ${l.pos_cafe || '—'}`)
-                )
-            )
-        );
-    };
-
-    const renderRegister = () => {
-        const [valJ, setValJ] = useState("");
-        const [valP, setValP] = useState("");
+    const saveEntry = async (j, p) => {
+        const newLog = { data: new Date().toLocaleDateString('pt-BR'), jejum: j, pos_cafe: p };
+        const newData = data ? {...data} : { profiles: [{ id:1, nome: "Wagner", logs: [] }] };
+        newData.profiles[0].logs.unshift(newLog);
         
-        const handleSave = () => {
-            const newLog = { data: new Date().toLocaleDateString('pt-BR'), jejum: valJ, pos_cafe: valP };
-            const newLogs = [newLog, ...(activeProfile.logs || [])];
-            saveUpdate({ ...activeProfile, logs: newLogs });
-            setActiveTab("Dashboard");
-        };
-
-        return React.createElement("div", { className: "card" },
-            React.createElement("div", { className: "field" }, 
-                React.createElement("label", null, "Glicemia Jejum"),
-                React.createElement("input", { type: "number", value: valJ, onChange: e => setValJ(e.target.value) })
-            ),
-            React.createElement("div", { className: "field", style: { marginTop: 15 } }, 
-                React.createElement("label", null, "Glicemia Pós-Café"),
-                React.createElement("input", { type: "number", value: valP, onChange: e => setValP(e.target.value) })
-            ),
-            React.createElement("button", { className: "btn-primary", style: { marginTop: 20 }, onClick: handleSave }, "Salvar")
-        );
+        setData(newData);
+        await fetch(`https://api.github.com/gists/${id}`, {
+            method: "PATCH",
+            headers: { Authorization: `token ${token}` },
+            body: JSON.stringify({ files: { "glicemia-data.json": { content: JSON.stringify(newData) } } })
+        });
+        setTab("Dashboard");
     };
 
-    return React.createElement("div", { className: "app" },
-        React.createElement("header", { className: "header" },
+    if (loading) return React.createElement("div", {style:{padding:40}}, "A ligar ao GitHub...");
+    if (!token || !id) return React.createElement("div", {style:{padding:40}}, "Erro: Token ou ID não encontrados no link.");
+
+    const logs = data?.profiles[0]?.logs || [];
+    const avgJ = logs.length ? Math.round(logs.slice(0,7).reduce((a,b)=>a+(Number(b.jejum)||0),0) / (logs.slice(0,7).filter(x=>x.jejum).length || 1)) : 0;
+
+    return React.createElement("div", {className:"app"},
+        React.createElement("header", {className:"header"}, 
             React.createElement("h1", null, "Glicemia"),
-            React.createElement("span", { className: "sync-badge synced" }, "● Online")
+            React.createElement("p", {style:{fontSize:12, color:'#7c7a76'}}, "Olá, " + (data?.profiles[0]?.nome || "Utilizador"))
         ),
-        React.createElement("div", { className: "tabs" },
-            ["Dashboard", "Registrar", "Perfil"].map(t => React.createElement("button", {
-                key: t,
-                className: `tab-btn ${activeTab === t ? "active" : ""}`,
-                onClick: () => setActiveTab(t)
+        
+        tab === "Dashboard" && React.createElement("div", null,
+            React.createElement("div", {className:"card"},
+                React.createElement("div", null, "Média Jejum (7 dias)"),
+                React.createElement("div", {className:"val"}, avgJ || "—"),
+                React.createElement("div", {style:{marginTop:20}}, "Últimos Registos:"),
+                logs.slice(0,3).map((l,i) => React.createElement("div", {key:i, style:{fontSize:13, marginTop:10, padding:'10px', background:'rgba(255,255,255,0.03)', borderRadius:8}}, 
+                    `${l.data}: ${l.jejum || '—'} mg/dL`
+                ))
+            )
+        ),
+
+        tab === "Registrar" && React.createElement("div", {className:"card"},
+            React.createElement("div", {className:"field"}, 
+                React.createElement("label", null, "Jejum"),
+                React.createElement("input", {id:"inj", type:"number"})
+            ),
+            React.createElement("div", {className:"field", style:{margin:'15px 0'}}, 
+                React.createElement("label", null, "Pós-Café"),
+                React.createElement("input", {id:"inp", type:"number"})
+            ),
+            React.createElement("button", {className:"btn-primary", onClick: () => saveEntry(document.getElementById("inj").value, document.getElementById("inp").value)}, "Gravar Agora")
+        ),
+
+        React.createElement("nav", {className:"tabs"},
+            ["Dashboard", "Registrar"].map(t => React.createElement("button", {
+                key:t, 
+                className:`tab-btn ${tab===t?'active':''}`,
+                onClick:()=>setTab(t)
             }, t))
-        ),
-        React.createElement("main", { className: "content" },
-            activeTab === "Dashboard" && renderDashboard(),
-            activeTab === "Registrar" && renderRegister(),
-            activeTab === "Perfil" && React.createElement("div", {className:"card"}, `Perfil: ${activeProfile.nome}`)
         )
     );
 }
 
 ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(App));
-
-// Registro de Service Worker para PWA
-if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('sw.js').catch(() => {});
-}
 </script>
 </body>
 </html>
