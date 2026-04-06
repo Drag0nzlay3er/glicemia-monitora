@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 
-<!-- PWA / iOS -->
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Glicemia">
@@ -12,10 +11,8 @@
 <meta name="theme-color" content="#0f1117">
 <meta name="description" content="Acompanhamento de glicemia, remédios e sintomas">
 
-<!-- Manifest -->
 <link rel="manifest" href="manifest.json">
 
-<!-- iOS splash / icon fallback -->
 <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'><rect width='180' height='180' rx='38' fill='%231a1f2e'/><text y='130' x='90' text-anchor='middle' font-size='100'>🩸</text></svg>">
 
 <title>Monitoramento Glicêmico</title>
@@ -345,556 +342,321 @@ function Pill({val,unit,lbl,color,badge}){
 function Setup({onSave}){
   const[token,setToken]=useState("");const[id,setId]=useState("");const[busy,setBusy]=useState(false);const[err,setErr]=useState("");
   const go=async()=>{if(!token.trim()||!id.trim()){setErr("Preencha os dois campos.");return}setBusy(true);setErr("");try{await gistLoad(token.trim(),id.trim());onSave(token.trim(),id.trim())}catch(e){setErr("Não conectou: "+e.message)}finally{setBusy(false)}};
-  return React.createElement("div",{className:"setup-wrap"},React.createElement("div",{className:"setup-card"},React.createElement("h2",null,"Configurar sincronização"),React.createElement("p",null,"Dados salvos num Gist privado no GitHub. Configure uma vez só."),React.createElement("div",{className:"step"},React.createElement("div",{className:"step-num"},"1"),React.createElement("div",null,"Acesse ",React.createElement("a",{href:"https://github.com/settings/tokens/new",target:"_blank"},"github.com/settings/tokens/new")," · Note: ",React.createElement("strong",null,'"glicemia"')," · Marque apenas ",React.createElement("strong",null,"gist")," · Gerar → Copiar")),React.createElement("div",{className:"step"},React.createElement("div",{className:"step-num"},"2"),React.createElement("div",null,"Acesse ",React.createElement("a",{href:"https://gist.github.com",target:"_blank"},"gist.github.com")," · Criar Gist Secret · Copiar ID da URL")),React.createElement("div",{className:"divider"}),React.createElement("div",{className:"field"},React.createElement("label",null,"Personal Access Token"),React.createElement("input",{type:"password",placeholder:"ghp_...",value:token,onChange:e=>setToken(e.target.value),autoComplete:"off",autoCorrect:"off",autoCapitalize:"off",spellCheck:"false"})),React.createElement("div",{className:"field"},React.createElement("label",null,"Gist ID"),React.createElement("input",{placeholder:"a1b2c3d4...",value:id,onChange:e=>setId(e.target.value),autoComplete:"off",autoCorrect:"off",autoCapitalize:"off",spellCheck:"false"})),err&&React.createElement("div",{className:"warn-box"},err),React.createElement("button",{className:"btn-primary",onClick:go,disabled:busy},busy?"Testando...":"Conectar")),React.createElement("div",{className:"info-box"},"Token salvo só neste dispositivo. Nenhum dado vai para terceiros."));
-}
-function TabDashboard({logs,avgJ,avgP,onExport,meds}){
-  const last=logs[0];
-  const js=last?.jejum?glicStatus(last.jejum,"jejum"):null;
-  const ps=last?.pos_cafe?glicStatus(last.pos_cafe,"pos"):null;
-  const chartData=logs.slice(0,14).reverse().map(r=>({label:fmt(r.data).slice(0,5),j:r.jejum?Number(r.jejum):null,p:r.pos_cafe?Number(r.pos_cafe):null}));
-  const todayLog=logs.find(l=>l.data===todayStr());
-  const takenCount=meds.filter(m=>todayLog?.meds?.[m.id]).length;
-  return React.createElement(React.Fragment,null,
-    React.createElement("p",{className:"section-title"},"Visão geral"),
-    meds.length>0&&React.createElement("div",{className:"card"},React.createElement("p",{className:"card-title"},"Remédios hoje"),React.createElement("div",{style:{display:"flex",alignItems:"center",gap:12}},React.createElement("div",{style:{fontSize:28,fontWeight:700,color:takenCount===meds.length?"#4ade80":"#e8c4a0"}},`${takenCount}/${meds.length}`),React.createElement("div",null,React.createElement("div",{style:{fontSize:13,color:"#e8e4df",fontWeight:500}},takenCount===meds.length?"Todos tomados ✓":"Pendentes"),React.createElement("div",{style:{fontSize:11,color:"#7c7a76",marginTop:2}},meds.filter(m=>!todayLog?.meds?.[m.id]).map(m=>m.alarm).join(" · ")||"Tudo certo!")))),
-    last&&React.createElement("div",{className:"card"},React.createElement("p",{className:"card-title"},`Último registro — ${fmt(last.data)}`),React.createElement("div",{className:"stat-row"},last.jejum&&React.createElement(Pill,{val:last.jejum,unit:"mg/dL",lbl:"Jejum",color:SC[js],badge:{c:SC[js],l:SL[js]}}),last.pos_cafe&&React.createElement(Pill,{val:last.pos_cafe,unit:"mg/dL",lbl:"Pós-café",color:SC[ps],badge:{c:SC[ps],l:SL[ps]}}),last.peso&&React.createElement(Pill,{val:last.peso,unit:"kg",lbl:"Peso",color:"#60a5fa"}))),
-    logs.length>=2&&React.createElement("div",{className:"card"},React.createElement("p",{className:"card-title"},"Média — últimos 7 dias"),React.createElement("div",{className:"stat-row"},React.createElement(Pill,{val:avgJ,unit:"mg/dL",lbl:"Jejum",color:"#e8c4a0"}),React.createElement(Pill,{val:avgP,unit:"mg/dL",lbl:"Pós-café",color:"#c084fc"}),React.createElement(Pill,{val:logs.length,unit:"dias",lbl:"Registros",color:"#5c5a56"}))),
-    chartData.length>=2&&React.createElement("div",{className:"card"},React.createElement("p",{className:"card-title"},"Tendência — últimos 14 dias"),React.createElement(LineChart,{data:chartData})),
-    logs.length===0&&React.createElement("div",{className:"empty"},React.createElement("div",{className:"icon"},"📊"),React.createElement("p",null,"Nenhum dado ainda. Vá em ",React.createElement("strong",null,"Registrar"),".")),
-    logs.length>0&&React.createElement(React.Fragment,null,React.createElement("p",{className:"card-title",style:{marginTop:8,marginBottom:10}},"EXPORTAR RELATÓRIO"),React.createElement("div",{className:"export-grid"},React.createElement("div",{className:"export-btn pdf-btn",onClick:()=>onExport("pdf")},React.createElement("div",{className:"eb-icon"},"📄"),React.createElement("div",{className:"eb-title"},"Baixar PDF"),React.createElement("div",{className:"eb-sub"},"Salvar ou enviar por WhatsApp")),React.createElement("div",{className:"export-btn html-btn",onClick:()=>onExport("html")},React.createElement("div",{className:"eb-icon"},"🖨️"),React.createElement("div",{className:"eb-title"},"Visualizar / Imprimir"),React.createElement("div",{className:"eb-sub"},"Abre para imprimir ou salvar PDF"))))
-  );
-}
-function TabRegistrar({logs,setLogs,sync,profile,saving,showToast,editLog,clearEdit,meds}){
-  const blank=()=>({data:todayStr(),jejum:"",pos_cafe:"",peso:"",obs:"",meds:{},rxChips:[],rxObs:""});
-  const[form,setForm]=useState(()=>editLog||logs.find(l=>l.data===todayStr())||blank());
-  const[notifAsked,setNotifAsked]=useState(!!LS.get("alarms-enabled"));
-  const isEditing=!!(editLog&&editLog.data!==todayStr());
-  useEffect(()=>{if(editLog)setForm(editLog);},[editLog]);
-  useEffect(()=>{if(editLog)return;const e=logs.find(l=>l.data===todayStr());if(e)setForm(e);},[logs,editLog]);
-  const f=k=>e=>setForm(p=>({...p,[k]:e.target.value}));
-  const toggleMed=id=>setForm(p=>({...p,meds:{...p.meds,[id]:!p.meds?.[id]}}));
-  const toggleChip=c=>setForm(p=>({...p,rxChips:p.rxChips?.includes(c)?p.rxChips.filter(x=>x!==c):[...(p.rxChips||[]),c]}));
-  const save=async()=>{
-    if(!form.jejum&&!form.pos_cafe&&!form.peso&&!Object.values(form.meds||{}).some(Boolean))return;
-    const entry={...form,id:form.id||Date.now()};
-    const upd=[entry,...logs.filter(l=>l.data!==form.data)].sort((a,b)=>b.data.localeCompare(a.data));
-    setLogs(upd);showToast(isEditing?"✓ Registro atualizado!":"✓ Registro salvo!");
-    if(clearEdit)clearEdit();await sync(upd);
-  };
-  const enableNotifs=()=>{requestNotifPermission(granted=>{if(granted){LS.set("alarms-enabled",true);setNotifAsked(true);showToast("✓ Alertas ativados!");}else showToast("Permissão negada","error");});};
-  const js=glicStatus(form.jejum,"jejum"),ps=glicStatus(form.pos_cafe,"pos");
-  return React.createElement(React.Fragment,null,
-    React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}},React.createElement("p",{className:"section-title",style:{marginBottom:0}},isEditing?`Editando — ${fmt(form.data)}`:"Registro de hoje"),isEditing&&React.createElement("button",{onClick:()=>{if(clearEdit)clearEdit();setForm(logs.find(l=>l.data===todayStr())||blank());},style:{background:"rgba(255,255,255,0.07)",border:"1px solid rgba(255,255,255,0.1)",borderRadius:8,padding:"6px 12px",fontSize:12,color:"#9c9a96",cursor:"pointer",fontFamily:"'DM Sans',sans-serif"}},"✕ Cancelar")),
-    !notifAsked&&React.createElement("div",{className:"alarm-banner"},React.createElement("div",{className:"icon"},"🔔"),React.createElement("div",{className:"text"},React.createElement("div",{className:"title"},"Ativar alertas de remédios"),React.createElement("div",{className:"sub"},"Notificações nos horários certos")),React.createElement("button",{onClick:enableNotifs,style:{background:"#fbbf24",color:"#0f1117",border:"none",borderRadius:8,padding:"8px 14px",fontSize:12,fontWeight:700,cursor:"pointer",flexShrink:0,fontFamily:"'DM Sans',sans-serif"}},"Ativar")),
-    React.createElement("div",{className:"card"},React.createElement("p",{className:"card-title"},"Data"),React.createElement("div",{className:"field"},React.createElement("input",{type:"date",value:form.data,onChange:f("data")}))),
-    meds.length>0&&React.createElement("div",{className:"card"},React.createElement("p",{className:"card-title"},"Remédios tomados"),meds.map(med=>React.createElement("div",{key:med.id,className:"med-item"+(form.meds?.[med.id]?" taken":""),onClick:()=>toggleMed(med.id)},React.createElement("div",{className:"med-check"},form.meds?.[med.id]&&"✓"),React.createElement("div",{className:"med-info"},React.createElement("div",{className:"med-name"},med.name," ",React.createElement("span",{style:{fontSize:11,fontWeight:400,color:form.meds?.[med.id]?"#4ade8099":"#5c5a56"}},med.dose)),React.createElement("div",{className:"med-time"},med.label)),React.createElement("div",{style:{fontSize:12,color:form.meds?.[med.id]?"#4ade80":"#5c5a56",flexShrink:0}},med.alarm)))),
-    React.createElement("div",{className:"card"},React.createElement("p",{className:"card-title"},"Glicemia"),React.createElement("div",{className:"row-2"},React.createElement("div",{className:"field"},React.createElement("label",null,"Jejum (ao acordar)"),React.createElement("input",{type:"number",placeholder:"95",value:form.jejum,onChange:f("jejum"),inputMode:"numeric"}),js&&React.createElement("p",{style:{fontSize:11,marginTop:4,color:SC[js]}},SL[js])),React.createElement("div",{className:"field"},React.createElement("label",null,"Pós-café (2h depois)"),React.createElement("input",{type:"number",placeholder:"130",value:form.pos_cafe,onChange:f("pos_cafe"),inputMode:"numeric"}),ps&&React.createElement("p",{style:{fontSize:11,marginTop:4,color:SC[ps]}},SL[ps])))),
-    React.createElement("div",{className:"card"},React.createElement("p",{className:"card-title"},"Peso"),React.createElement("div",{className:"field"},React.createElement("label",null,"Peso (kg)"),React.createElement("input",{type:"number",placeholder:"72.5",value:form.peso,onChange:f("peso"),inputMode:"decimal",step:"0.1"}))),
-    React.createElement("div",{className:"card"},React.createElement("p",{className:"card-title"},"Reações / sintomas"),React.createElement("div",{className:"chip-grid"},REACTION_CHIPS.map(c=>React.createElement("button",{key:c,className:"chip"+(form.rxChips?.includes(c)?" selected":""),onClick:()=>toggleChip(c)},c))),React.createElement("div",{className:"field"},React.createElement("label",null,"Observações adicionais"),React.createElement("textarea",{placeholder:"ex: dor de cabeça forte por volta das 10h...",value:form.rxObs||"",onChange:f("rxObs")}))),
-    React.createElement("div",{className:"card"},React.createElement("p",{className:"card-title"},"Notas do dia"),React.createElement("div",{className:"field"},React.createElement("textarea",{placeholder:"ex: dormiu mal, comeu fora...",value:form.obs,onChange:f("obs")}))),
-    React.createElement("button",{className:"btn-primary",onClick:save,disabled:saving},saving?"Salvando...":(isEditing?"Atualizar registro":"Salvar registro do dia"))
-  );
-}
-function TabHistorico({logs,setLogs,sync,onEdit,meds}){
-  if(!logs.length)return React.createElement("div",{className:"empty"},React.createElement("div",{className:"icon"},"📋"),React.createElement("p",null,"Nenhum registro ainda."));
-  const del=async id=>{const upd=logs.filter(r=>r.id!==id);setLogs(upd);await sync(upd);};
-  return React.createElement(React.Fragment,null,React.createElement("p",{className:"section-title"},"Histórico"),
-    logs.map(r=>{
-      const js=glicStatus(r.jejum,"jejum"),ps=glicStatus(r.pos_cafe,"pos");
-      const takenMeds=meds.filter(m=>r.meds?.[m.id]);
-      const rxAll=[...(r.rxChips||[]),(r.rxObs||"")].filter(Boolean);
-      return React.createElement("div",{className:"list-item",key:r.id},
-        React.createElement("button",{className:"del-btn",onClick:()=>del(r.id)},"✕"),
-        React.createElement("button",{className:"edit-btn",onClick:()=>onEdit(r),style:{marginRight:4}},"✏️ editar"),
-        React.createElement("div",{className:"date"},fmt(r.data)),
-        React.createElement("div",{className:"values"},r.jejum&&React.createElement("div",{className:"val-item"},React.createElement("span",{style:{color:SC[js]}},r.jejum),React.createElement("span",{style:{fontSize:11,color:"#7c7a76"}}," mg/dL jej")),r.pos_cafe&&React.createElement("div",{className:"val-item"},React.createElement("span",{style:{color:SC[ps]}},r.pos_cafe),React.createElement("span",{style:{fontSize:11,color:"#7c7a76"}}," mg/dL pós")),r.peso&&React.createElement("div",{className:"val-item"},React.createElement("span",{style:{color:"#60a5fa"}},r.peso),React.createElement("span",{style:{fontSize:11,color:"#7c7a76"}}," kg"))),
-        takenMeds.length>0&&React.createElement("div",{style:{marginTop:8,display:"flex",flexWrap:"wrap",gap:4}},takenMeds.map(m=>React.createElement("span",{key:m.id,style:{fontSize:11,background:"rgba(74,222,128,0.1)",color:"#4ade80",border:"1px solid rgba(74,222,128,0.2)",borderRadius:100,padding:"2px 8px"}},`✓ ${m.name} ${m.time}`))),
-        rxAll.length>0&&React.createElement("div",{style:{marginTop:6},className:"chip-grid"},rxAll.map((c,i)=>React.createElement("span",{key:i,className:"rx-tag"},c))),
-        r.obs&&React.createElement("p",{style:{fontSize:12,color:"#7c7a76",marginTop:6}},r.obs)
-      );
-    })
-  );
-}
-function TabPerfil({profile,setProfile,save,saving,resetGist,onExport,meds}){
-  const f=k=>e=>setProfile(p=>({...p,[k]:e.target.value}));
-  const isIOS=/iphone|ipad|ipod/i.test(navigator.userAgent);
-  const blankMed=()=>({id:"med_"+Date.now(),name:"",dose:"",label:"",alarm:""});
-  const[newMed,setNewMed]=useState(blankMed());
-  const[editingId,setEditingId]=useState(null);
-  const nm=k=>e=>setNewMed(p=>({...p,[k]:e.target.value}));
-
-  const addMed=()=>{
-    if(!newMed.name.trim()||!newMed.alarm.trim())return;
-    const med={...newMed,id:"med_"+Date.now(),label:newMed.label||newMed.name};
-    setProfile(p=>({...p,meds:[...(p.meds||[]),med]}));
-    setNewMed(blankMed());
-  };
-  const removeMed=id=>setProfile(p=>({...p,meds:(p.meds||[]).filter(m=>m.id!==id)}));
-
-  return React.createElement(React.Fragment,null,
-    React.createElement("p",{className:"section-title"},"Perfil"),
-    isIOS&&React.createElement("div",{className:"install-banner"},React.createElement("div",{className:"icon"},"📲"),React.createElement("div",null,React.createElement("strong",null,"Instalar como app no iPhone"),React.createElement("p",null,'Toque em Compartilhar (⎋) → "Adicionar à Tela de Início"'))),
-
-    // Dados pessoais
-    React.createElement("div",{className:"card"},
-      React.createElement("p",{className:"card-title"},"Paciente"),
-      React.createElement("div",{className:"field"},React.createElement("label",null,"Nome completo"),React.createElement("input",{value:profile.nome,onChange:f("nome"),placeholder:"Nome"})),
-      React.createElement("div",{className:"row-2"},
-        React.createElement("div",{className:"field"},React.createElement("label",null,"Data de nascimento"),React.createElement("input",{type:"date",value:profile.dataNasc,onChange:f("dataNasc")})),
-        React.createElement("div",{className:"field"},React.createElement("label",null,"Peso inicial (kg)"),React.createElement("input",{type:"number",value:profile.peso_inicial,onChange:f("peso_inicial"),step:"0.1",inputMode:"decimal"}))
-      )
-    ),
-
-    // Médico
-    React.createElement("div",{className:"card"},
-      React.createElement("p",{className:"card-title"},"Médico"),
-      React.createElement("div",{className:"field"},React.createElement("label",null,"Nome"),React.createElement("input",{value:profile.medico,onChange:f("medico"),placeholder:"Dr(a)."})),
-      React.createElement("div",{className:"row-2"},
-        React.createElement("div",{className:"field"},React.createElement("label",null,"CRM"),React.createElement("input",{value:profile.crm,onChange:f("crm"),placeholder:"CRM/RS 00000"})),
-        React.createElement("div",{className:"field"},React.createElement("label",null,"Telefone"),React.createElement("input",{value:profile.telefone_medico,onChange:f("telefone_medico"),placeholder:"(51) 9...",type:"tel"}))
-      )
-    ),
-
-    // Gerenciador de remédios
-    React.createElement("div",{className:"card"},
-      React.createElement("p",{className:"card-title"},"Remédios"),
-
-      // Lista dos cadastrados
-      meds.length===0&&React.createElement("p",{style:{fontSize:13,color:"#5c5a56",marginBottom:12}},"Nenhum remédio cadastrado ainda."),
-      meds.map(m=>React.createElement("div",{key:m.id,style:{display:"flex",alignItems:"center",gap:10,padding:"10px 0",borderBottom:"1px solid rgba(255,255,255,0.05)"}},
-        React.createElement("div",{style:{flex:1}},
-          React.createElement("div",{style:{fontSize:14,fontWeight:600,color:"#e8e4df"}},m.name," ",React.createElement("span",{style:{fontSize:11,color:"#7c7a76",fontWeight:400}},m.dose)),
-          React.createElement("div",{style:{fontSize:11,color:"#7c7a76",marginTop:2}},`${m.label||m.name} · ${m.alarm}`)
-        ),
-        React.createElement("button",{onClick:()=>removeMed(m.id),style:{background:"none",border:"none",color:"#f87171",cursor:"pointer",fontSize:18,padding:"4px",flexShrink:0}},"✕")
-      )),
-
-      // Formulário novo remédio
-      React.createElement("div",{style:{marginTop:14,paddingTop:14,borderTop:"1px solid rgba(255,255,255,0.06)"}},
-        React.createElement("p",{style:{fontSize:11,color:"#7c7a76",textTransform:"uppercase",letterSpacing:"1px",fontWeight:600,marginBottom:10}},"Adicionar remédio"),
-        React.createElement("div",{className:"row-2"},
-          React.createElement("div",{className:"field"},React.createElement("label",null,"Nome"),React.createElement("input",{placeholder:"ex: Metformina",value:newMed.name,onChange:nm("name")})),
-          React.createElement("div",{className:"field"},React.createElement("label",null,"Dose"),React.createElement("input",{placeholder:"ex: 500mg",value:newMed.dose,onChange:nm("dose")}))
-        ),
-        React.createElement("div",{className:"row-2"},
-          React.createElement("div",{className:"field"},React.createElement("label",null,"Quando tomar"),React.createElement("input",{placeholder:"ex: Após almoço",value:newMed.label,onChange:nm("label")})),
-          React.createElement("div",{className:"field"},React.createElement("label",null,"Horário do alerta"),React.createElement("input",{type:"time",value:newMed.alarm,onChange:nm("alarm")}))
-        ),
-        React.createElement("button",{onClick:addMed,style:{width:"100%",background:"rgba(232,196,160,0.15)",border:"1px solid rgba(232,196,160,0.3)",borderRadius:10,padding:"11px",fontSize:13,fontWeight:600,color:"#e8c4a0",cursor:"pointer",fontFamily:"'DM Sans',sans-serif"}},"+ Adicionar remédio")
-      )
-    ),
-
-    React.createElement("button",{className:"btn-primary",onClick:save,disabled:saving},saving?"Salvando...":"Salvar perfil"),
-    React.createElement("button",{className:"btn-secondary",onClick:()=>onExport("pdf")},"📄 Baixar relatório PDF"),
-    React.createElement("button",{className:"btn-secondary",onClick:()=>onExport("html")},"🖨️ Visualizar / Imprimir relatório"),
-    React.createElement("div",{className:"divider"}),
-    React.createElement("button",{className:"btn-ghost",style:{color:"#f87171",borderColor:"rgba(248,113,113,0.3)"},onClick:resetGist},"⚠️ Reconfigurar Gist / trocar token")
-  );
-}
-// ── PIN helpers ───────────────────────────────────────────────────────────────
-async function hashPin(pin){
-  const buf=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(pin+"glicemia-salt"));
-  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,"0")).join("");
+  return React.createElement("div",{className:"setup-wrap"},React.createElement("div",{className:"setup-card"},React.createElement("h2",null,"Configurar sincronização"),React.createElement("p",null,"Dados salvos num Gist privado no GitHub. Configure uma vez só."),React.createElement("div",{className:"step"},React.createElement("div",{className:"step-num"},"1"),React.createElement("div",null,"Acesse ",React.createElement("a",{href:"https://github.com/settings/tokens/new",target:"_blank"},"github.com/settings/tokens")," e crie um token (escopo 'gist').")),React.createElement("div",{className:"step"},React.createElement("div",{className:"step-num"},"2"),React.createElement("div",null,"Crie um Gist em ",React.createElement("a",{href:"https://gist.github.com",target:"_blank"},"gist.github.com")," e pegue o ID na URL.")),React.createElement("div",{className:"divider"}),React.createElement("div",{className:"field"},React.createElement("label",null,"GitHub Token"),React.createElement("input",{type:"password",value:token,onChange:e=>setToken(e.target.value),placeholder:"ghp_..."})),React.createElement("div",{className:"field"},React.createElement("label",null,"Gist ID"),React.createElement("input",{value:id,onChange:e=>setId(e.target.value),placeholder:"ID de 32 caracteres"})),err&&React.createElement("div",{className:"warn-box",style:{fontSize:11}},err),React.createElement("button",{className:"btn-primary",onClick:go,disabled:busy},busy?"Verificando...":"Salvar e Conectar")));
 }
 
-// ── PinModal ──────────────────────────────────────────────────────────────────
-function PinModal({title,sub,onSuccess,onCancel}){
-  const[digits,setDigits]=useState([]);
-  const[err,setErr]=useState("");
-  const[shake,setShake]=useState(false);
+function PinModal({onSuccess,onCancel}){
+  const[val,setVal]=useState("");const[err,setErr]=useState(false);
+  const press=n=>{if(val.length<4){const nv=val+n;setVal(nv);if(nv.length===4){if(nv==="1234"){onSuccess()}else{setErr(true);setTimeout(()=>{setVal("");setErr(false)},600)}}}};
+  return React.createElement("div",{className:"pin-overlay"},React.createElement("div",{className:"pin-sheet"},React.createElement("div",{className:"pin-title"},"PIN de Acesso"),React.createElement("div",{className:"pin-sub"},"Digite o PIN para acessar este perfil"),React.createElement("div",{className:"pin-dots"},[0,1,2,3].map(i=>React.createElement("div",{key:i,className:`pin-dot ${val.length>i?"filled":""}`}))),React.createElement("div",{className:"pin-grid"},[1,2,3,4,5,6,7,8,9].map(n=>React.createElement("button",{key:n,className:"pin-btn",onClick:()=>press(n)},n)),React.createElement("button",{className:"pin-btn empty"}),React.createElement("button",{className:"pin-btn",onClick:()=>press(0)},"0"),React.createElement("button",{className:"pin-btn del",onClick:()=>setVal(val.slice(0,-1))},"←")),err&&React.createElement("div",{className:"pin-error"},"PIN Incorreto"),React.createElement("button",{className:"btn-ghost",onClick:onCancel,style:{marginTop:20}},"Cancelar")));
+}
 
-  const press=d=>{
-    if(digits.length>=4)return;
-    const next=[...digits,d];
-    setDigits(next);setErr("");
-    if(next.length===4){
-      const pin=next.join("");
-      hashPin(pin).then(h=>{
-        const stored=LS.get("admin-pin-hash");
-        if(!stored){
-          // first time — set pin
-          LS.set("admin-pin-hash",h);
-          onSuccess();
-        } else if(h===stored){
-          onSuccess();
-        } else {
-          setShake(true);setErr("PIN incorreto");
-          setTimeout(()=>{setDigits([]);setShake(false);},600);
+function App() {
+  // --- Lógica de Auto-Setup via URL ---
+  const urlParams = new URLSearchParams(window.location.search);
+  const urlToken = urlParams.get('token');
+  const urlId = urlParams.get('id');
+
+  // Se houver parâmetros na URL, salva-os no LocalStorage e limpa a URL para segurança
+  if (urlToken && urlId) {
+    LS.set("gist-token", urlToken);
+    LS.set("gist-id", urlId);
+    window.history.replaceState({}, document.title, window.location.pathname);
+  }
+
+  const [token, setToken] = useState(LS.get("gist-token") || "");
+  const [gistId, setGistId] = useState(LS.get("gist-id") || "");
+  const [screen, setScreen] = useState(token ? "profiles" : "setup");
+  const [activeTab, setActiveTab] = useState("Dashboard");
+  const [profiles, setProfiles] = useState([]);
+  const [activeProfile, setActiveProfile] = useState(null);
+  const [syncStatus, setSyncStatus] = useState("synced");
+  const [toast, setToast] = useState(null);
+  const [showSwitcher, setShowSwitcher] = useState(false);
+
+  const showToast = (msg, type = "success") => { setToast({ msg, type }); setTimeout(() => setToast(null), 3000); };
+
+  const loadAll = useCallback(async () => {
+    if (!token || !gistId) return;
+    setSyncStatus("syncing");
+    try {
+      const data = await gistLoad(token, gistId);
+      if (data && data.profiles) {
+        setProfiles(data.profiles);
+        // Tenta manter o perfil ativo se ele já existia
+        if (activeProfile) {
+          const updated = data.profiles.find(p => p.id === activeProfile.id);
+          if (updated) setActiveProfile(updated);
         }
-      });
+      }
+      setSyncStatus("synced");
+    } catch (e) {
+      setSyncStatus("error");
+      showToast("Erro ao sincronizar", "error");
+    }
+  }, [token, gistId, activeProfile]);
+
+  useEffect(() => { if (token && gistId) loadAll(); }, [token, gistId]);
+
+  useAlarmTick(activeProfile?.logs || [], activeProfile?.meds || []);
+
+  const saveAll = async (newProfiles) => {
+    setProfiles(newProfiles);
+    setSyncStatus("syncing");
+    try {
+      await gistSave(token, gistId, { profiles: newProfiles });
+      setSyncStatus("synced");
+    } catch (e) {
+      setSyncStatus("error");
+      showToast("Erro ao salvar", "error");
     }
   };
-  const del=()=>setDigits(d=>d.slice(0,-1));
 
-  const keys=["1","2","3","4","5","6","7","8","9","","0","⌫"];
-  return React.createElement("div",{className:"pin-overlay",onClick:e=>{if(e.target.className==="pin-overlay")onCancel&&onCancel()}},
-    React.createElement("div",{className:"pin-sheet",style:{animation:shake?"shake .3s ease":undefined}},
-      React.createElement("p",{className:"pin-title"},title||"🔐 PIN Admin"),
-      React.createElement("p",{className:"pin-sub"},sub||(LS.get("admin-pin-hash")?"Digite seu PIN":"Crie um PIN de 4 dígitos")),
-      React.createElement("div",{className:"pin-dots"},
-        [0,1,2,3].map(i=>React.createElement("div",{key:i,className:"pin-dot"+(digits.length>i?" filled":"")}))),
-      React.createElement("div",{className:"pin-grid"},
-        keys.map((k,i)=>
-          k===""?React.createElement("div",{key:i,className:"pin-btn empty"}):
-          k==="⌫"?React.createElement("button",{key:i,className:"pin-btn del",onClick:del},k):
-          React.createElement("button",{key:i,className:"pin-btn",onClick:()=>press(k)},k)
-        )
-      ),
-      err&&React.createElement("p",{className:"pin-error"},err),
-      onCancel&&React.createElement("button",{onClick:onCancel,style:{width:"100%",marginTop:14,background:"none",border:"none",color:"#5c5a56",fontSize:13,cursor:"pointer",fontFamily:"'DM Sans',sans-serif"}},"Cancelar")
-    )
-  );
-}
-
-// ── ProfileSelector ───────────────────────────────────────────────────────────
-function ProfileSelector({onSelect,onAdmin}){
-  const profiles=LS.get("profiles")||[];
-  const emojis=["🌸","🌻","🌺","🦋","🌙","⭐"];
-  return React.createElement("div",{className:"profile-screen"},
-    React.createElement("p",{className:"section-title",style:{marginBottom:20}},"Quem é você?"),
-    profiles.map((p,i)=>React.createElement("div",{key:p.gistId,className:"profile-card",onClick:()=>onSelect(p)},
-      React.createElement("div",{className:"profile-avatar"},emojis[i%emojis.length]),
-      React.createElement("div",{className:"profile-info"},
-        React.createElement("div",{className:"profile-name"},p.name||"Paciente"),
-        React.createElement("div",{className:"profile-sub"},"Toque para entrar")
-      ),
-      React.createElement("div",{className:"profile-arrow"},"›")
-    )),
-    React.createElement("div",{className:"profile-card admin-card",onClick:onAdmin},
-      React.createElement("div",{className:"profile-avatar"},"🛡️"),
-      React.createElement("div",{className:"profile-info"},
-        React.createElement("div",{className:"profile-name"},"Admin"),
-        React.createElement("div",{className:"profile-sub"},"Gerenciar perfis")
-      ),
-      React.createElement("div",{className:"profile-arrow"},"›")
-    )
-  );
-}
-
-// ── Gist create helper ────────────────────────────────────────────────────────
-async function gistCreate(token,name){
-  const r=await fetch("https://api.github.com/gists",{
-    method:"POST",
-    headers:{Authorization:`token ${token}`,Accept:"application/vnd.github+json","Content-Type":"application/json"},
-    body:JSON.stringify({
-      description:`Glicemia — ${name}`,
-      public:false,
-      files:{[GIST_FILE]:{content:JSON.stringify({profile:{nome:name},logs:[],updated:new Date().toISOString()},null,2)}}
-    })
-  });
-  if(!r.ok)throw new Error(`HTTP ${r.status}`);
-  const d=await r.json();
-  return d.id;
-}
-
-// ── AdminPanel ────────────────────────────────────────────────────────────────
-function AdminPanel({onSelectProfile,onClose,showToast}){
-  const[profiles,setProfilesState]=useState(()=>LS.get("profiles")||[]);
-  const[name,setName]=useState("");
-  const[token,setToken]=useState(()=>LS.get("admin-token")||"");
-  const[busy,setBusy]=useState(false);
-  const[created,setCreated]=useState(null); // {name, token, gistId}
-  const[copied,setCopied]=useState("");
-
-  const saveProfiles=(ps)=>{LS.set("profiles",ps);setProfilesState(ps)};
-
-  const createProfile=async()=>{
-    if(!name.trim()||!token.trim())return;
-    setBusy(true);
-    try{
-      const gistId=await gistCreate(token.trim(),name.trim());
-      const np={name:name.trim(),token:token.trim(),gistId};
-      const updated=[...profiles.filter(p=>p.gistId!==gistId),np];
-      saveProfiles(updated);
-      LS.set("admin-token",token.trim()); // remember token
-      setCreated({name:name.trim(),token:token.trim(),gistId});
-      setName("");
-      showToast("✓ Perfil criado!");
-    }catch(e){showToast("Erro ao criar: "+e.message,"error");}
-    finally{setBusy(false)}
+  const handleSetup = (t, i) => {
+    setToken(t); setGistId(i);
+    LS.set("gist-token", t); LS.set("gist-id", i);
+    setScreen("profiles");
   };
 
-  const removeProfile=id=>{if(!confirm("Remover perfil?"))return;saveProfiles(profiles.filter(p=>p.gistId!==id))};
-  const resetPin=()=>{LS.set("admin-pin-hash","");showToast("PIN redefinido!");};
-
-  const copyText=async(text,label)=>{
-    try{await navigator.clipboard.writeText(text);setCopied(label);setTimeout(()=>setCopied(""),2000);}
-    catch{/* fallback */const el=document.createElement("textarea");el.value=text;document.body.appendChild(el);el.select();document.execCommand("copy");document.body.removeChild(el);setCopied(label);setTimeout(()=>setCopied(""),2000);}
+  const handleProfileSelect = (p) => {
+    if (p.isAdmin) { setScreen("pin-admin"); } else { setActiveProfile(p); setScreen("app"); }
   };
 
-  const shareWhatsApp=(p)=>{
-    const msg=`🩸 *App de Monitoramento Glicêmico*\n\nAcesse: https://drag0nzlay3er.github.io/glicemia-monitora/\n\nNa tela de configuração use:\n*Token:* ${p.token}\n*Gist ID:* ${p.gistId}\n\nEsse acesso é só seu — não compartilhe com ninguém.`;
-    window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`,"_blank");
+  const handlePinSuccess = () => {
+    const admin = profiles.find(p => p.isAdmin);
+    setActiveProfile(admin);
+    setScreen("app");
   };
 
-  return React.createElement("div",{className:"content"},
-    React.createElement("div",{style:{display:"flex",alignItems:"center",gap:12,marginBottom:16}},
-      React.createElement("p",{className:"section-title",style:{marginBottom:0,flex:1}},"Painel Admin"),
-      React.createElement("button",{onClick:onClose,style:{background:"rgba(255,255,255,0.07)",border:"1px solid rgba(255,255,255,0.1)",borderRadius:8,padding:"6px 12px",fontSize:12,color:"#9c9a96",cursor:"pointer",fontFamily:"'DM Sans',sans-serif"}},"← Voltar")
-    ),
+  const updateProfile = (updated) => {
+    const next = profiles.map(p => p.id === updated.id ? updated : p);
+    saveAll(next);
+  };
 
-    // Perfis cadastrados
-    React.createElement("div",{className:"card"},
-      React.createElement("p",{className:"card-title"},"Perfis cadastrados"),
-      profiles.length===0&&React.createElement("p",{style:{fontSize:13,color:"#5c5a56",marginBottom:4}},"Nenhum perfil ainda."),
-      profiles.map(p=>React.createElement("div",{key:p.gistId,style:{display:"flex",alignItems:"center",gap:10,padding:"12px 0",borderBottom:"1px solid rgba(255,255,255,0.05)"}},
-        React.createElement("div",{style:{flex:1}},
-          React.createElement("div",{style:{fontSize:14,fontWeight:600,color:"#e8e4df"}},p.name),
-          React.createElement("div",{style:{fontSize:11,color:"#7c7a76",marginTop:2,fontFamily:"monospace"}},p.gistId.slice(0,16)+"...")
+  if (screen === "setup") return React.createElement(Setup, { onSave: handleSetup });
+
+  if (screen === "profiles") {
+    return React.createElement("div", { className: "profile-screen" },
+      React.createElement("h2", { className: "section-title", style: { textAlign: "center", marginBottom: 30 } }, "Quem está usando?"),
+      profiles.map(p => React.createElement("div", {
+        key: p.id,
+        className: `profile-card ${p.isAdmin ? "admin-card" : ""}`,
+        onClick: () => handleProfileSelect(p)
+      },
+        React.createElement("div", { className: "profile-avatar" }, p.isAdmin ? "👨‍⚕️" : "👤"),
+        React.createElement("div", { className: "profile-info" },
+          React.createElement("div", { className: "profile-name" }, p.nome || "Usuário"),
+          React.createElement("div", { className: "profile-sub" }, p.isAdmin ? "Administrador" : "Perfil Paciente")
         ),
-        React.createElement("button",{onClick:()=>shareWhatsApp(p),style:{background:"rgba(74,222,128,0.1)",border:"1px solid rgba(74,222,128,0.2)",borderRadius:8,padding:"5px 10px",fontSize:12,color:"#4ade80",cursor:"pointer",fontFamily:"'DM Sans',sans-serif",marginRight:4}},"📲"),
-        React.createElement("button",{onClick:()=>onSelectProfile(p),style:{background:"rgba(232,196,160,0.15)",border:"1px solid rgba(232,196,160,0.3)",borderRadius:8,padding:"5px 10px",fontSize:12,color:"#e8c4a0",cursor:"pointer",fontFamily:"'DM Sans',sans-serif",marginRight:4}},"Abrir"),
-        React.createElement("button",{onClick:()=>removeProfile(p.gistId),style:{background:"none",border:"none",color:"#f87171",cursor:"pointer",fontSize:18,padding:"4px"}},"✕")
+        React.createElement("div", { className: "profile-arrow" }, "›")
       ))
-    ),
+    );
+  }
 
-    // Criar novo perfil
-    React.createElement("div",{className:"card"},
-      React.createElement("p",{className:"card-title"},"Criar novo perfil"),
-      React.createElement("div",{className:"info-box",style:{marginBottom:12}},"Informe o nome e o token. O Gist é criado automaticamente."),
-      React.createElement("div",{className:"field"},
-        React.createElement("label",null,"Nome da paciente"),
-        React.createElement("input",{placeholder:"ex: Mãe, Lara, Ana...",value:name,onChange:e=>setName(e.target.value)})
+  // --- Componentes Internos do App (Dashboard, Registrar, etc.) ---
+
+  const renderDashboard = () => {
+    const logs = activeProfile.logs || [];
+    const last7 = logs.slice(0, 7);
+    const avgJ = last7.length ? Math.round(last7.reduce((a, b) => a + (Number(b.jejum) || 0), 0) / last7.filter(l => l.jejum).length || 0) : 0;
+    const avgP = last7.length ? Math.round(last7.reduce((a, b) => a + (Number(b.pos_cafe) || 0), 0) / last7.filter(l => l.pos_cafe).length || 0) : 0;
+
+    const chartData = [...last7].reverse().map(l => ({
+      label: fmt(l.data).split("/")[0],
+      j: l.jejum ? Number(l.jejum) : null,
+      p: l.pos_cafe ? Number(l.pos_cafe) : null
+    }));
+
+    return React.createElement("div", null,
+      React.createElement("div", { className: "card" },
+        React.createElement("div", { className: "card-title" }, "Média 7 dias"),
+        React.createElement("div", { className: "stat-row" },
+          React.createElement(Pill, { val: avgJ || "—", unit: "mg/dL", lbl: "Jejum", color: "#e8c4a0" }),
+          React.createElement(Pill, { val: avgP || "—", unit: "mg/dL", lbl: "Pós-café", color: "#c084fc" })
+        ),
+        chartData.length > 1 && React.createElement(LineChart, { data: chartData })
       ),
-      React.createElement("div",{className:"field"},
-        React.createElement("label",null,"Personal Access Token (GitHub)"),
-        React.createElement("input",{type:"password",placeholder:"ghp_...",value:token,onChange:e=>setToken(e.target.value),autoComplete:"off",autoCorrect:"off",autoCapitalize:"off",spellCheck:"false"})
-      ),
-      React.createElement("button",{className:"btn-primary",onClick:createProfile,disabled:busy||!name.trim()||!token.trim()},busy?"Criando Gist...":"✨ Criar perfil automaticamente")
-    ),
+      React.createElement("div", { className: "card" },
+        React.createElement("div", { className: "card-title" }, "Próximos Remédios"),
+        (activeProfile.meds || []).length === 0 ? 
+          React.createElement("p", { style: { fontSize: 13, color: "#5c5a56" } }, "Nenhum remédio configurado.") :
+          activeProfile.meds.map(m => {
+            const todayLog = logs.find(l => l.data === todayStr());
+            const taken = todayLog?.meds?.[m.id];
+            return React.createElement("div", {
+              key: m.id,
+              className: `med-item ${taken ? "taken" : ""}`,
+              onClick: () => {
+                const today = todayStr();
+                let newLogs = [...logs];
+                let logIdx = newLogs.findIndex(l => l.data === today);
+                if (logIdx === -1) {
+                  newLogs.unshift({ data: today, meds: { [m.id]: !taken } });
+                } else {
+                  newLogs[logIdx] = { ...newLogs[logIdx], meds: { ...(newLogs[logIdx].meds || {}), [m.id]: !taken } };
+                }
+                updateProfile({ ...activeProfile, logs: newLogs });
+              }
+            },
+              React.createElement("div", { className: "med-check" }, taken ? "✓" : ""),
+              React.createElement("div", { className: "med-info" },
+                React.createElement("div", { className: "med-name" }, m.name),
+                React.createElement("div", { className: "med-time" }, `${m.alarm} — ${m.dose}`)
+              )
+            );
+          })
+      )
+    );
+  };
 
-    // Credenciais geradas — mostrar após criação
-    created&&React.createElement("div",{className:"card",style:{border:"1px solid rgba(74,222,128,0.3)"}},
-      React.createElement("p",{className:"card-title",style:{color:"#4ade80"}},"✓ Perfil criado — credenciais"),
-      React.createElement("p",{style:{fontSize:13,color:"#9c9a96",marginBottom:14}},`Compartilhe com ${created.name} para ela configurar o app:`),
+  const renderRegister = () => {
+    const [formData, setFormData] = useState({
+      data: todayStr(), jejum: "", pos_cafe: "", peso: "", rxObs: "", rxChips: []
+    });
 
-      // Token
-      React.createElement("div",{style:{background:"#252b3b",borderRadius:10,padding:"12px 14px",marginBottom:10}},
-        React.createElement("div",{style:{fontSize:11,color:"#7c7a76",marginBottom:4,textTransform:"uppercase",letterSpacing:"1px",fontWeight:600}},"Token"),
-        React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8}},
-          React.createElement("div",{style:{flex:1,fontSize:12,color:"#e8c4a0",fontFamily:"monospace",wordBreak:"break-all"}},created.token),
-          React.createElement("button",{onClick:()=>copyText(created.token,"token"),style:{background:"rgba(232,196,160,0.15)",border:"1px solid rgba(232,196,160,0.3)",borderRadius:8,padding:"6px 12px",fontSize:12,color:"#e8c4a0",cursor:"pointer",fontFamily:"'DM Sans',sans-serif",flexShrink:0}},copied==="token"?"✓ Copiado!":"Copiar")
-        )
-      ),
-
-      // Gist ID
-      React.createElement("div",{style:{background:"#252b3b",borderRadius:10,padding:"12px 14px",marginBottom:14}},
-        React.createElement("div",{style:{fontSize:11,color:"#7c7a76",marginBottom:4,textTransform:"uppercase",letterSpacing:"1px",fontWeight:600}},"Gist ID"),
-        React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8}},
-          React.createElement("div",{style:{flex:1,fontSize:12,color:"#60a5fa",fontFamily:"monospace",wordBreak:"break-all"}},created.gistId),
-          React.createElement("button",{onClick:()=>copyText(created.gistId,"gistId"),style:{background:"rgba(96,165,250,0.15)",border:"1px solid rgba(96,165,250,0.3)",borderRadius:8,padding:"6px 12px",fontSize:12,color:"#60a5fa",cursor:"pointer",fontFamily:"'DM Sans',sans-serif",flexShrink:0}},copied==="gistId"?"✓ Copiado!":"Copiar")
-        )
-      ),
-
-      // WhatsApp
-      React.createElement("button",{onClick:()=>shareWhatsApp(created),style:{width:"100%",background:"rgba(74,222,128,0.15)",border:"1px solid rgba(74,222,128,0.3)",borderRadius:12,padding:"13px",fontSize:14,fontWeight:600,color:"#4ade80",cursor:"pointer",fontFamily:"'DM Sans',sans-serif"}},
-        "📲 Enviar pelo WhatsApp"
-      ),
-      React.createElement("button",{onClick:()=>setCreated(null),style:{width:"100%",marginTop:8,background:"none",border:"none",color:"#5c5a56",fontSize:12,cursor:"pointer",fontFamily:"'DM Sans',sans-serif"}},"Fechar")
-    ),
-
-    // Segurança
-    React.createElement("div",{className:"card"},
-      React.createElement("p",{className:"card-title"},"Segurança"),
-      React.createElement("button",{className:"btn-ghost",style:{color:"#f87171",borderColor:"rgba(248,113,113,0.3)"},onClick:resetPin},"🔑 Redefinir PIN admin")
-    )
-  );
-}
-
-// ── App ───────────────────────────────────────────────────────────────────────
-function App(){
-  // ── Multi-profile state ──
-  const[screen,setScreen]=useState("profiles"); // profiles | pin-admin | admin | app
-  const[activeProfile,setActiveProfile]=useState(null);
-  const[showPinModal,setShowPinModal]=useState(false);
-  const[showSwitcher,setShowSwitcher]=useState(false);
-  const[pendingProfile,setPendingProfile]=useState(null);
-
-  // ── App state ──
-  const[tab,setTab]=useState("Dashboard");
-  const[toast,setToast]=useState(null);
-  const[syncStatus,setSyncStatus]=useState("offline");
-  const[profile,setProfile]=useState({nome:"",dataNasc:"",peso_inicial:"",medico:"",crm:"",telefone_medico:"",remedios:"",meds:[]});
-  const[logs,setLogs]=useState([]);
-  const[loaded,setLoaded]=useState(false);
-  const[saving,setSaving]=useState(false);
-  const[editLog,setEditLog]=useState(null);
-  const handleEdit=useCallback((log)=>{setEditLog(log);setTab("Registrar");},[]);
-  const clearEdit=useCallback(()=>{setEditLog(null);},[]);
-  const showToast=useCallback((msg,type="success")=>{setToast({msg,type});setTimeout(()=>setToast(null),2800)},[]);
-  const meds=profile.meds||[];
-  useAlarmTick(logs,meds);
-
-  // ── Load data for active profile ──
-  useEffect(()=>{
-    if(!activeProfile)return;
-    setLoaded(false);setProfile({nome:"",dataNasc:"",peso_inicial:"",medico:"",crm:"",telefone_medico:"",remedios:"",meds:[]});setLogs([]);
-    setSyncStatus("syncing");
-    gistLoad(activeProfile.token,activeProfile.gistId).then(d=>{
-      if(d){
-        if(d.profile)setProfile(p=>({...p,...d.profile}));
-        const entries=d.logs||d.readings||[];
-        setLogs(entries.map(r=>({meds:{},rxChips:[],rxObs:"",...r})));
+    const saveEntry = () => {
+      let newLogs = [...(activeProfile.logs || [])];
+      const idx = newLogs.findIndex(l => l.data === formData.data);
+      if (idx > -1) {
+        newLogs[idx] = { ...newLogs[idx], ...formData };
+      } else {
+        newLogs.unshift(formData);
+        newLogs.sort((a, b) => b.data.localeCompare(a.data));
       }
-      setSyncStatus("synced");setLoaded(true);
-    }).catch(e=>{console.error(e);setSyncStatus("error");setLoaded(true);showToast("Erro ao carregar dados","error")});
-  },[activeProfile]);
+      updateProfile({ ...activeProfile, logs: newLogs });
+      showToast("Registrado com sucesso!");
+      setActiveTab("Dashboard");
+    };
 
-  const syncLogs=useCallback(async(newLogs,newProfile)=>{
-    if(!activeProfile)return;
-    const p=newProfile||profile;
-    setSaving(true);setSyncStatus("syncing");
-    try{await gistSave(activeProfile.token,activeProfile.gistId,{profile:p,logs:newLogs,updated:new Date().toISOString()});setSyncStatus("synced")}
-    catch(e){console.error(e);setSyncStatus("error");showToast("Erro ao sincronizar","error")}
-    finally{setSaving(false)}
-  },[activeProfile,profile,showToast]);
-
-  const saveProfile=async()=>{showToast("✓ Perfil salvo!");await syncLogs(logs,profile)};
-
-  const avgJ=logs.filter(r=>r.jejum).slice(0,7).reduce((s,r,_,a)=>a.length?s+Number(r.jejum)/a.length:s,0).toFixed(0);
-  const avgP=logs.filter(r=>r.pos_cafe).slice(0,7).reduce((s,r,_,a)=>a.length?s+Number(r.pos_cafe)/a.length:s,0).toFixed(0);
-  const handleExport=type=>{
-    if(type==="pdf"){exportPDF(profile,logs,avgJ,avgP);showToast("✓ PDF gerado!");}
-    else openPrintReport(profile,logs,avgJ,avgP);
-  };
-
-  // ── Profile selection handlers ──
-  const enterProfile=useCallback((p)=>{
-    setActiveProfile(p);setScreen("app");setTab("Dashboard");
-  },[]);
-
-  const handleSelectProfile=useCallback((p)=>{
-    // Update profile name in registry if profile data loaded
-    enterProfile(p);
-  },[enterProfile]);
-
-  const handleAdminClick=()=>{setScreen("pin-admin");};
-  const handlePinSuccess=()=>{
-    if(pendingProfile){enterProfile(pendingProfile);setPendingProfile(null);}
-    else setScreen("admin");
-  };
-  const handleSwitchRequest=()=>{setShowSwitcher(true);};
-
-  const SLABELS={offline:"sem sync",syncing:"sincronizando...",synced:"sincronizado ✓",error:"erro de sync"};
-  const hDate=new Date().toLocaleDateString("pt-BR",{weekday:"long",day:"numeric",month:"long"});
-
-  // ── Screens ──
-  const header=React.createElement("div",{className:"header"},React.createElement("h1",null,"🩸 Monitoramento Glicêmico"));
-
-  if(screen==="profiles"||screen==="pin-admin"){
-    const profiles=LS.get("profiles")||[];
-    // If no profiles yet, go straight to admin setup
-    if(profiles.length===0&&screen==="profiles"){
-      return React.createElement("div",{className:"app"},
-        header,
-        React.createElement("div",{className:"content"},
-          React.createElement("div",{className:"info-box"},"Nenhum perfil cadastrado. Entre como Admin para adicionar."),
-          React.createElement("div",{className:"profile-card admin-card",onClick:handleAdminClick,style:{cursor:"pointer"}},
-            React.createElement("div",{className:"profile-avatar"},"🛡️"),
-            React.createElement("div",{className:"profile-info"},React.createElement("div",{className:"profile-name"},"Admin"),React.createElement("div",{className:"profile-sub"},"Cadastrar perfis")),
-            React.createElement("div",{className:"profile-arrow"},"›")
+    return React.createElement("div", null,
+      React.createElement("div", { className: "card" },
+        React.createElement("div", { className: "field" },
+          React.createElement("label", null, "Data"),
+          React.createElement("input", { type: "date", value: formData.data, onChange: e => setFormData({ ...formData, data: e.target.value }) })
+        ),
+        React.createElement("div", { className: "row-2" },
+          React.createElement("div", { className: "field" },
+            React.createElement("label", null, "Jejum (mg/dL)"),
+            React.createElement("input", { type: "number", inputMode: "numeric", value: formData.jejum, onChange: e => setFormData({ ...formData, jejum: e.target.value }) })
+          ),
+          React.createElement("div", { className: "field" },
+            React.createElement("label", null, "Pós-café (mg/dL)"),
+            React.createElement("input", { type: "number", inputMode: "numeric", value: formData.pos_cafe, onChange: e => setFormData({ ...formData, pos_cafe: e.target.value }) })
           )
         ),
-        screen==="pin-admin"&&React.createElement(PinModal,{onSuccess:handlePinSuccess,onCancel:()=>setScreen("profiles")})
-      );
-    }
-    return React.createElement("div",{className:"app"},
-      header,
-      React.createElement(ProfileSelector,{onSelect:handleSelectProfile,onAdmin:handleAdminClick}),
-      screen==="pin-admin"&&React.createElement(PinModal,{onSuccess:handlePinSuccess,onCancel:()=>setScreen("profiles")})
-    );
-  }
-
-  if(screen==="admin"){
-    return React.createElement("div",{className:"app"},
-      header,
-      React.createElement(AdminPanel,{
-        onSelectProfile:(p)=>{enterProfile(p);},
-        onClose:()=>setScreen("profiles"),
-        showToast
-      }),
-      toast&&React.createElement("div",{className:"toast "+(toast.type||"success")},toast.msg)
-    );
-  }
-
-  // ── Main app screen ──
-  if(!loaded)return React.createElement("div",{className:"app"},
-    React.createElement("div",{className:"header"},React.createElement("h1",null,"🩸 Monitoramento Glicêmico")),
-    React.createElement("div",{className:"empty"},React.createElement("div",{className:"icon"},"⏳"),React.createElement("p",null,"Carregando dados de ",React.createElement("strong",null,activeProfile?.name||"...")))
-  );
-
-  return React.createElement("div",{className:"app"},
-    React.createElement("div",{className:"header"},
-      React.createElement("h1",null,"🩸 Monitoramento Glicêmico"),
-      React.createElement("div",{className:"header-row"},
-        React.createElement("p",null,`${profile.nome||activeProfile?.name||"—"} · ${hDate}`),
-        React.createElement("div",{style:{display:"flex",gap:6,alignItems:"center",flexShrink:0}},
-          React.createElement("span",{className:"sync-badge "+syncStatus},SLABELS[syncStatus]),
-          React.createElement("button",{className:"switch-btn",onClick:handleSwitchRequest},"↕ trocar")
-        )
-      )
-    ),
-    React.createElement("div",{className:"tabs"},TABS.map(t=>React.createElement("button",{key:t,className:"tab-btn"+(tab===t?" active":""),onClick:()=>setTab(t)},t))),
-    React.createElement("div",{className:"content"},
-      tab==="Dashboard"&&React.createElement(TabDashboard,{logs,avgJ,avgP,onExport:handleExport,meds}),
-      tab==="Registrar"&&React.createElement(TabRegistrar,{logs,setLogs,sync:syncLogs,profile,saving,showToast,editLog,clearEdit,meds}),
-      tab==="Histórico"&&React.createElement(TabHistorico,{logs,setLogs,sync:syncLogs,onEdit:handleEdit,meds}),
-      tab==="Perfil"&&React.createElement(TabPerfil,{profile,setProfile,save:saveProfile,saving,resetGist:()=>setScreen("profiles"),onExport:handleExport,meds})
-    ),
-    // Quick switcher overlay
-    showSwitcher&&React.createElement("div",{className:"pin-overlay",onClick:()=>setShowSwitcher(false)},
-      React.createElement("div",{className:"pin-sheet"},
-        React.createElement("p",{className:"pin-title",style:{marginBottom:16}},"Trocar perfil"),
-        (LS.get("profiles")||[]).map((p,i)=>{
-          const emojis=["🌸","🌻","🌺","🦋","🌙","⭐"];
-          const isActive=p.gistId===activeProfile?.gistId;
-          return React.createElement("div",{key:p.gistId,className:"profile-card",style:{marginBottom:10,opacity:isActive?.6:1,cursor:isActive?"default":"pointer"},onClick:()=>{if(!isActive){setShowSwitcher(false);handleSelectProfile(p);}}},
-            React.createElement("div",{className:"profile-avatar"},emojis[i%emojis.length]),
-            React.createElement("div",{className:"profile-info"},React.createElement("div",{className:"profile-name"},p.name),React.createElement("div",{className:"profile-sub"},isActive?"perfil atual":"toque para entrar")),
-            isActive&&React.createElement("div",{style:{fontSize:11,color:"#4ade80",fontWeight:600}},"✓")
-          );
-        }),
-        React.createElement("div",{className:"profile-card admin-card",style:{marginBottom:0},onClick:()=>{setShowSwitcher(false);handleAdminClick();}},
-          React.createElement("div",{className:"profile-avatar"},"🛡️"),
-          React.createElement("div",{className:"profile-info"},React.createElement("div",{className:"profile-name"},"Admin"),React.createElement("div",{className:"profile-sub"},"Gerenciar perfis")),
-          React.createElement("div",{className:"profile-arrow"},"›")
-        )
-      )
-    ),
-    showSwitcher&&screen!=="pin-admin"&&React.createElement(React.Fragment,null),
-    // PIN for admin from switcher
-    showSwitcher===false&&screen==="pin-admin"&&React.createElement(PinModal,{onSuccess:handlePinSuccess,onCancel:()=>setScreen("app")}),
-    toast&&React.createElement("div",{className:"toast "+(toast.type||"success")},toast.msg)
-  );
-}
-ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(App));
-</script>
-
-<!-- Service Worker Registration -->
-<script>
-if('serviceWorker' in navigator){
-  window.addEventListener('load',()=>{
-    navigator.serviceWorker.register('/glicemia-monitora/service-worker.js')
-      .then(reg=>{
-        console.log('[SW] Registrado:',reg.scope);
-        // Check for updates
-        reg.addEventListener('updatefound',()=>{
-          const newWorker=reg.installing;
-          newWorker.addEventListener('statechange',()=>{
-            if(newWorker.state==='installed'&&navigator.serviceWorker.controller){
-              console.log('[SW] Nova versão disponível');
+        React.createElement("div", { className: "field" },
+          React.createElement("label", null, "Peso (kg)"),
+          React.createElement("input", { type: "number", step: "0.1", value: formData.peso, onChange: e => setFormData({ ...formData, peso: e.target.value }) })
+        ),
+        React.createElement("div", { className: "card-title" }, "Reações / Sintomas"),
+        React.createElement("div", { className: "chip-grid" },
+          REACTION_CHIPS.map(c => React.createElement("div", {
+            key: c,
+            className: `chip ${formData.rxChips.includes(c) ? "selected" : ""}`,
+            onClick: () => {
+              const nc = formData.rxChips.includes(c) ? formData.rxChips.filter(x => x !== c) : [...formData.rxChips, c];
+              setFormData({ ...formData, rxChips: nc });
             }
-          });
-        });
-      })
-      .catch(err=>console.warn('[SW] Falha no registro:',err));
-  });
-  // Online/offline indicator
-  const updateOnline=()=>document.body.classList.toggle('is-offline',!navigator.onLine);
-  window.addEventListener('online',updateOnline);
-  window.addEventListener('offline',updateOnline);
-  updateOnline();
+          }, c))
+        ),
+        React.createElement("button", { className: "btn-primary", onClick: saveEntry }, "Salvar Registro")
+      )
+    );
+  };
+
+  const renderHistory = () => {
+    const logs = activeProfile.logs || [];
+    return React.createElement("div", null,
+      logs.length === 0 ? React.createElement("div", { className: "empty" }, "Nenhum registro encontrado.") :
+        logs.map((l, i) => React.createElement("div", { key: i, className: "list-item" },
+          React.createElement("button", {
+            className: "del-btn", onClick: () => {
+              if (confirm("Excluir este registro?")) {
+                updateProfile({ ...activeProfile, logs: logs.filter((_, idx) => idx !== i) });
+              }
+            }
+          }, "×"),
+          React.createElement("div", { className: "date" }, fmt(l.data)),
+          React.createElement("div", { className: "values" },
+            l.jejum && React.createElement("div", { className: "val-item" }, "Jejum: ", React.createElement("span", { style: { color: SC[glicStatus(l.jejum, "jejum")] } }, l.jejum)),
+            l.pos_cafe && React.createElement("div", { className: "val-item" }, "Pós: ", React.createElement("span", { style: { color: SC[glicStatus(l.pos_cafe, "pos")] } }, l.pos_cafe)),
+            l.peso && React.createElement("div", { className: "val-item" }, "Peso: ", React.createElement("span", { style: { color: "#60a5fa" } }, l.peso, "kg"))
+          ),
+          l.rxChips?.length > 0 && React.createElement("div", { style: { marginTop: 8 } },
+            l.rxChips.map(c => React.createElement("span", { key: c, className: "rx-tag" }, c))
+          )
+        ))
+    );
+  };
+
+  const renderProfile = () => {
+    return React.createElement("div", null,
+      React.createElement("div", { className: "card" },
+        React.createElement("div", { className: "card-title" }, "Dados do Paciente"),
+        React.createElement("div", { className: "field" },
+          React.createElement("label", null, "Nome Completo"),
+          React.createElement("input", { value: activeProfile.nome || "", onChange: e => updateProfile({ ...activeProfile, nome: e.target.value }) })
+        ),
+        React.createElement("button", {
+          className: "btn-secondary", onClick: () => {
+            const logs = activeProfile.logs || [];
+            const last7 = logs.slice(0, 7);
+            const avgJ = last7.length ? Math.round(last7.reduce((a, b) => a + (Number(b.jejum) || 0), 0) / last7.filter(l => l.jejum).length || 0) : 0;
+            const avgP = last7.length ? Math.round(last7.reduce((a, b) => a + (Number(b.pos_cafe) || 0), 0) / last7.filter(l => l.pos_cafe).length || 0) : 0;
+            openPrintReport(activeProfile, logs, avgJ, avgP);
+          }
+        }, "Gerar Relatório de Impressão"),
+        React.createElement("button", {
+          className: "btn-ghost", onClick: () => {
+            if (confirm("Deseja sair e trocar de perfil?")) { setScreen("profiles"); setActiveProfile(null); }
+          }
+        }, "Trocar Perfil"),
+        React.createElement("button", {
+          className: "btn-ghost", style: { color: "#f87171", borderColor: "rgba(248,113,113,0.2)" },
+          onClick: () => {
+            if (confirm("Limpar todas as configurações do app?")) {
+              localStorage.clear(); window.location.reload();
+            }
+          }
+        }, "Resetar Aplicativo")
+      )
+    );
+  };
+
+  return React.createElement("div", { className: "app" },
+    React.createElement("header", { className: "header" },
+      React.createElement("div", { className: "header-row" },
+        React.createElement("h1", null, "Glicemia"),
+        React.createElement("div", { className: `sync-badge ${syncStatus}` }, 
+          syncStatus === "synced" ? "● Sincronizado" : syncStatus === "syncing" ? "○ Gravando..." : "× Erro Sync")
+      ),
+      React.createElement("div", { className: "header-row", style: { marginTop: 10 } },
+        React.createElement("p", null, activeProfile?.nome || "Bem-vindo"),
+        React.createElement("button", { className: "switch-btn", onClick: () => setScreen("profiles") }, "Trocar Perfil ⇄")
+      )
+    ),
+    React.createElement("div", { className: "tabs" },
+      TABS.map(t => React.createElement("button", {
+        key: t,
+        className: `tab-btn ${activeTab === t ? "active" : ""}`,
+        onClick: () => setActiveTab(t)
+      }, t))
+    ),
+    React.createElement("main", { className: "content" },
+      activeTab === "Dashboard" && renderDashboard(),
+      activeTab === "Registrar" && renderRegister(),
+      activeTab === "Histórico" && renderHistory(),
+      activeTab === "Perfil" && renderProfile()
+    ),
+    toast && React.createElement("div", { className: `toast ${toast.type}` }, toast.msg),
+    screen === "pin-admin" && React.createElement(PinModal, { 
+      onSuccess: handlePinSuccess, 
+      onCancel: () => setScreen("profiles") 
+    })
+  );
 }
+
+ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(App));
 </script>
 </body>
 </html>
