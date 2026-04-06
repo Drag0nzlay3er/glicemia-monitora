@@ -596,35 +596,54 @@ function AdminPanel({onSelectProfile,onClose,showToast}){
   const[created,setCreated]=useState(null); // {name, token, gistId}
   const[copied,setCopied]=useState("");
 
+  const[name,setName]=useState("");
+  const[pass,setPass]=useState("");
+  const[token,setToken]=useState(()=>LS.get("admin-token")||"");
+  const[busy,setBusy]=useState(false);
+  const[created,setCreated]=useState(null);
+  const[copied,setCopied]=useState("");
+
   const saveProfiles=(ps)=>{LS.set("profiles",ps);setProfilesState(ps)};
 
   const createProfile=async()=>{
-    if(!name.trim()||!token.trim())return;
+    if(!name.trim()||!token.trim()||!pass.trim())return;
     setBusy(true);
     try{
       const gistId=await gistCreate(token.trim(),name.trim());
       const np={name:name.trim(),token:token.trim(),gistId};
+      // save profile data for patient link auto-load
+      LS.set("profile-data-"+gistId,np);
+      // save password hash for patient link auth
+      const h=await hashPass(pass.trim(),gistId);
+      LS.set("profile-pass-"+gistId,h);
       const updated=[...profiles.filter(p=>p.gistId!==gistId),np];
       saveProfiles(updated);
-      LS.set("admin-token",token.trim()); // remember token
-      setCreated({name:name.trim(),token:token.trim(),gistId});
-      setName("");
+      LS.set("admin-token",token.trim());
+      const link=window.location.origin+window.location.pathname+"?p="+gistId;
+      setCreated({name:name.trim(),token:token.trim(),gistId,pass:pass.trim(),link});
+      setName("");setPass("");
       showToast("✓ Perfil criado!");
     }catch(e){showToast("Erro ao criar: "+e.message,"error");}
     finally{setBusy(false)}
   };
 
-  const removeProfile=id=>{if(!confirm("Remover perfil?"))return;saveProfiles(profiles.filter(p=>p.gistId!==id))};
+  const removeProfile=id=>{
+    if(!confirm("Remover perfil?"))return;
+    saveProfiles(profiles.filter(p=>p.gistId!==id));
+  };
   const resetPin=()=>{LS.set("admin-pin-hash","");showToast("PIN redefinido!");};
 
   const copyText=async(text,label)=>{
-    try{await navigator.clipboard.writeText(text);setCopied(label);setTimeout(()=>setCopied(""),2000);}
-    catch{/* fallback */const el=document.createElement("textarea");el.value=text;document.body.appendChild(el);el.select();document.execCommand("copy");document.body.removeChild(el);setCopied(label);setTimeout(()=>setCopied(""),2000);}
+    try{await navigator.clipboard.writeText(text);}
+    catch{const el=document.createElement("textarea");el.value=text;document.body.appendChild(el);el.select();document.execCommand("copy");document.body.removeChild(el);}
+    setCopied(label);setTimeout(()=>setCopied(""),2000);
   };
 
   const shareWhatsApp=(p)=>{
-    const msg=`🩸 *App de Monitoramento Glicêmico*\n\nAcesse: https://drag0nzlay3er.github.io/glicemia-monitora/\n\nNa tela de configuração use:\n*Token:* ${p.token}\n*Gist ID:* ${p.gistId}\n\nEsse acesso é só seu — não compartilhe com ninguém.`;
-    window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`,"_blank");
+    const link=window.location.origin+window.location.pathname+"?p="+p.gistId;
+    const stored=p.pass||"(senha definida no cadastro)";
+    const msg="🩸 *App de Monitoramento Glicêmico*\n\nSeu link exclusivo:\n"+link+"\n\n🔑 Senha: "+stored+"\n\nSalve o link e a senha — são só seus. Não compartilhe com ninguém.";
+    window.open("https://wa.me/?text="+encodeURIComponent(msg),"_blank");
   };
 
   return React.createElement("div",{className:"content"},
@@ -651,45 +670,46 @@ function AdminPanel({onSelectProfile,onClose,showToast}){
     // Criar novo perfil
     React.createElement("div",{className:"card"},
       React.createElement("p",{className:"card-title"},"Criar novo perfil"),
-      React.createElement("div",{className:"info-box",style:{marginBottom:12}},"Informe o nome e o token. O Gist é criado automaticamente."),
+      React.createElement("div",{className:"info-box",style:{marginBottom:12}},"Preencha os dados. O Gist e o link único são criados automaticamente."),
       React.createElement("div",{className:"field"},
         React.createElement("label",null,"Nome da paciente"),
         React.createElement("input",{placeholder:"ex: Mãe, Lara, Ana...",value:name,onChange:e=>setName(e.target.value)})
       ),
       React.createElement("div",{className:"field"},
+        React.createElement("label",null,"Senha de acesso (você define)"),
+        React.createElement("input",{type:"text",placeholder:"ex: lara2024",value:pass,onChange:e=>setPass(e.target.value),autoComplete:"off",autoCorrect:"off",autoCapitalize:"off",spellCheck:"false"})
+      ),
+      React.createElement("div",{className:"field"},
         React.createElement("label",null,"Personal Access Token (GitHub)"),
         React.createElement("input",{type:"password",placeholder:"ghp_...",value:token,onChange:e=>setToken(e.target.value),autoComplete:"off",autoCorrect:"off",autoCapitalize:"off",spellCheck:"false"})
       ),
-      React.createElement("button",{className:"btn-primary",onClick:createProfile,disabled:busy||!name.trim()||!token.trim()},busy?"Criando Gist...":"✨ Criar perfil automaticamente")
+      React.createElement("button",{className:"btn-primary",onClick:createProfile,disabled:busy||!name.trim()||!token.trim()||!pass.trim()},busy?"Criando...":"✨ Criar perfil automaticamente")
     ),
 
-    // Credenciais geradas — mostrar após criação
+    // Credenciais geradas
     created&&React.createElement("div",{className:"card",style:{border:"1px solid rgba(74,222,128,0.3)"}},
-      React.createElement("p",{className:"card-title",style:{color:"#4ade80"}},"✓ Perfil criado — credenciais"),
-      React.createElement("p",{style:{fontSize:13,color:"#9c9a96",marginBottom:14}},`Compartilhe com ${created.name} para ela configurar o app:`),
+      React.createElement("p",{className:"card-title",style:{color:"#4ade80"}},"✓ Perfil criado"),
+      React.createElement("p",{style:{fontSize:13,color:"#9c9a96",marginBottom:14}},"Compartilhe o link e a senha com "+created.name+":"),
 
-      // Token
+      // Link
       React.createElement("div",{style:{background:"#252b3b",borderRadius:10,padding:"12px 14px",marginBottom:10}},
-        React.createElement("div",{style:{fontSize:11,color:"#7c7a76",marginBottom:4,textTransform:"uppercase",letterSpacing:"1px",fontWeight:600}},"Token"),
+        React.createElement("div",{style:{fontSize:11,color:"#7c7a76",marginBottom:4,textTransform:"uppercase",letterSpacing:"1px",fontWeight:600}},"Link exclusivo"),
         React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8}},
-          React.createElement("div",{style:{flex:1,fontSize:12,color:"#e8c4a0",fontFamily:"monospace",wordBreak:"break-all"}},created.token),
-          React.createElement("button",{onClick:()=>copyText(created.token,"token"),style:{background:"rgba(232,196,160,0.15)",border:"1px solid rgba(232,196,160,0.3)",borderRadius:8,padding:"6px 12px",fontSize:12,color:"#e8c4a0",cursor:"pointer",fontFamily:"'DM Sans',sans-serif",flexShrink:0}},copied==="token"?"✓ Copiado!":"Copiar")
+          React.createElement("div",{style:{flex:1,fontSize:12,color:"#e8c4a0",fontFamily:"monospace",wordBreak:"break-all"}},created.link),
+          React.createElement("button",{onClick:()=>copyText(created.link,"link"),style:{background:"rgba(232,196,160,0.15)",border:"1px solid rgba(232,196,160,0.3)",borderRadius:8,padding:"6px 10px",fontSize:12,color:"#e8c4a0",cursor:"pointer",fontFamily:"'DM Sans',sans-serif",flexShrink:0}},copied==="link"?"✓":"Copiar")
         )
       ),
 
-      // Gist ID
+      // Senha
       React.createElement("div",{style:{background:"#252b3b",borderRadius:10,padding:"12px 14px",marginBottom:14}},
-        React.createElement("div",{style:{fontSize:11,color:"#7c7a76",marginBottom:4,textTransform:"uppercase",letterSpacing:"1px",fontWeight:600}},"Gist ID"),
+        React.createElement("div",{style:{fontSize:11,color:"#7c7a76",marginBottom:4,textTransform:"uppercase",letterSpacing:"1px",fontWeight:600}},"Senha"),
         React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8}},
-          React.createElement("div",{style:{flex:1,fontSize:12,color:"#60a5fa",fontFamily:"monospace",wordBreak:"break-all"}},created.gistId),
-          React.createElement("button",{onClick:()=>copyText(created.gistId,"gistId"),style:{background:"rgba(96,165,250,0.15)",border:"1px solid rgba(96,165,250,0.3)",borderRadius:8,padding:"6px 12px",fontSize:12,color:"#60a5fa",cursor:"pointer",fontFamily:"'DM Sans',sans-serif",flexShrink:0}},copied==="gistId"?"✓ Copiado!":"Copiar")
+          React.createElement("div",{style:{flex:1,fontSize:14,color:"#60a5fa",fontFamily:"monospace",fontWeight:600}},created.pass),
+          React.createElement("button",{onClick:()=>copyText(created.pass,"pass"),style:{background:"rgba(96,165,250,0.15)",border:"1px solid rgba(96,165,250,0.3)",borderRadius:8,padding:"6px 10px",fontSize:12,color:"#60a5fa",cursor:"pointer",fontFamily:"'DM Sans',sans-serif",flexShrink:0}},copied==="pass"?"✓":"Copiar")
         )
       ),
 
-      // WhatsApp
-      React.createElement("button",{onClick:()=>shareWhatsApp(created),style:{width:"100%",background:"rgba(74,222,128,0.15)",border:"1px solid rgba(74,222,128,0.3)",borderRadius:12,padding:"13px",fontSize:14,fontWeight:600,color:"#4ade80",cursor:"pointer",fontFamily:"'DM Sans',sans-serif"}},
-        "📲 Enviar pelo WhatsApp"
-      ),
+      React.createElement("button",{onClick:()=>shareWhatsApp(created),style:{width:"100%",background:"rgba(74,222,128,0.15)",border:"1px solid rgba(74,222,128,0.3)",borderRadius:12,padding:"13px",fontSize:14,fontWeight:600,color:"#4ade80",cursor:"pointer",fontFamily:"'DM Sans',sans-serif"}},"📲 Enviar pelo WhatsApp"),
       React.createElement("button",{onClick:()=>setCreated(null),style:{width:"100%",marginTop:8,background:"none",border:"none",color:"#5c5a56",fontSize:12,cursor:"pointer",fontFamily:"'DM Sans',sans-serif"}},"Fechar")
     ),
 
@@ -701,14 +721,258 @@ function AdminPanel({onSelectProfile,onClose,showToast}){
   );
 }
 
+// ── Simple password hash (SHA-256 + salt) ────────────────────────────────────
+async function hashPass(pass,salt){
+  const buf=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(pass+salt));
+  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,"0")).join("");
+}
+
+// ── URL param helpers ─────────────────────────────────────────────────────────
+function getUrlParam(key){
+  return new URLSearchParams(window.location.search).get(key);
+}
+
+// ── PasswordScreen ────────────────────────────────────────────────────────────
+function PasswordScreen({profileName,onSuccess,onForgot}){
+  const[pass,setPass]=useState("");
+  const[err,setErr]=useState("");
+  const[busy,setBusy]=useState(false);
+
+  const submit=async()=>{
+    if(!pass.trim())return;
+    setBusy(true);setErr("");
+    const profileId=getUrlParam("p");
+    const stored=LS.get("profile-pass-"+profileId);
+    if(!stored){setErr("Perfil não configurado. Contate o administrador.");setBusy(false);return;}
+    const h=await hashPass(pass.trim(),profileId);
+    if(h===stored){onSuccess();}
+    else{setErr("Senha incorreta. Tente novamente.");setPass("");}
+    setBusy(false);
+  };
+
+  return React.createElement("div",{className:"content"},
+    React.createElement("div",{style:{textAlign:"center",padding:"32px 0 24px"}},
+      React.createElement("div",{style:{fontSize:48,marginBottom:12}},"🩸"),
+      React.createElement("p",{className:"section-title",style:{marginBottom:4,textAlign:"center"}},profileName||"Monitoramento"),
+      React.createElement("p",{style:{fontSize:13,color:"#7c7a76"}})
+    ),
+    React.createElement("div",{className:"card"},
+      React.createElement("div",{className:"field"},
+        React.createElement("label",null,"Senha de acesso"),
+        React.createElement("input",{
+          type:"password",placeholder:"Digite sua senha",
+          value:pass,onChange:e=>setPass(e.target.value),
+          onKeyDown:e=>e.key==="Enter"&&submit(),
+          autoFocus:true,autoComplete:"current-password"
+        })
+      ),
+      err&&React.createElement("div",{className:"warn-box",style:{marginBottom:12}},err),
+      React.createElement("button",{className:"btn-primary",onClick:submit,disabled:busy||!pass.trim()},busy?"Verificando...":"Entrar")
+    ),
+    React.createElement("p",{style:{textAlign:"center",fontSize:12,color:"#5c5a56",marginTop:16}},"Esqueceu a senha? Peça ao administrador.")
+  );
+}
+
 // ── App ───────────────────────────────────────────────────────────────────────
 function App(){
-  // ── Multi-profile state ──
-  const[screen,setScreen]=useState("profiles"); // profiles | pin-admin | admin | app
+  const profileId=getUrlParam("p"); // present = patient link, absent = admin
+  const isPatientLink=!!profileId;
+
+  // ── Routing state ──
+  // patient flow: "password" → "app"
+  // admin flow:   "profiles" | "pin-admin" | "admin"
+  const initScreen=()=>{
+    if(isPatientLink){
+      // Check if already authenticated this session
+      return sessionStorage.getItem("auth-"+profileId)==="1"?"app":"password";
+    }
+    return "profiles";
+  };
+  const[screen,setScreen]=useState(initScreen);
   const[activeProfile,setActiveProfile]=useState(null);
-  const[showPinModal,setShowPinModal]=useState(false);
   const[showSwitcher,setShowSwitcher]=useState(false);
   const[pendingProfile,setPendingProfile]=useState(null);
+
+  // ── App data state ──
+  const[tab,setTab]=useState("Dashboard");
+  const[toast,setToast]=useState(null);
+  const[syncStatus,setSyncStatus]=useState("offline");
+  const[profile,setProfile]=useState({nome:"",dataNasc:"",peso_inicial:"",medico:"",crm:"",telefone_medico:"",remedios:"",meds:[]});
+  const[logs,setLogs]=useState([]);
+  const[loaded,setLoaded]=useState(false);
+  const[saving,setSaving]=useState(false);
+  const[editLog,setEditLog]=useState(null);
+  const handleEdit=useCallback((log)=>{setEditLog(log);setTab("Registrar");},[]);
+  const clearEdit=useCallback(()=>{setEditLog(null);},[]);
+  const showToast=useCallback((msg,type="success")=>{setToast({msg,type});setTimeout(()=>setToast(null),2800)},[]);
+  const meds=profile.meds||[];
+  useAlarmTick(logs,meds);
+
+  // ── Auto-load patient profile from URL ──
+  useEffect(()=>{
+    if(!isPatientLink||screen!=="app")return;
+    const p=LS.get("profile-data-"+profileId);
+    if(!p){showToast("Perfil não encontrado","error");return;}
+    setActiveProfile(p);
+  },[screen]);
+
+  // ── Load Gist data when activeProfile is set ──
+  useEffect(()=>{
+    if(!activeProfile)return;
+    setLoaded(false);
+    setProfile({nome:"",dataNasc:"",peso_inicial:"",medico:"",crm:"",telefone_medico:"",remedios:"",meds:[]});
+    setLogs([]);
+    setSyncStatus("syncing");
+    gistLoad(activeProfile.token,activeProfile.gistId).then(d=>{
+      if(d){
+        if(d.profile)setProfile(p=>({...p,...d.profile}));
+        const entries=d.logs||d.readings||[];
+        setLogs(entries.map(r=>({meds:{},rxChips:[],rxObs:"",...r})));
+      }
+      setSyncStatus("synced");setLoaded(true);
+    }).catch(e=>{console.error(e);setSyncStatus("error");setLoaded(true);showToast("Erro ao carregar","error")});
+  },[activeProfile]);
+
+  const syncLogs=useCallback(async(newLogs,newProfile)=>{
+    if(!activeProfile)return;
+    const p=newProfile||profile;
+    setSaving(true);setSyncStatus("syncing");
+    try{await gistSave(activeProfile.token,activeProfile.gistId,{profile:p,logs:newLogs,updated:new Date().toISOString()});setSyncStatus("synced")}
+    catch(e){console.error(e);setSyncStatus("error");showToast("Erro ao sincronizar","error")}
+    finally{setSaving(false)}
+  },[activeProfile,profile,showToast]);
+
+  const saveProfile=async()=>{showToast("✓ Perfil salvo!");await syncLogs(logs,profile)};
+  const avgJ=logs.filter(r=>r.jejum).slice(0,7).reduce((s,r,_,a)=>a.length?s+Number(r.jejum)/a.length:s,0).toFixed(0);
+  const avgP=logs.filter(r=>r.pos_cafe).slice(0,7).reduce((s,r,_,a)=>a.length?s+Number(r.pos_cafe)/a.length:s,0).toFixed(0);
+  const handleExport=type=>{
+    if(type==="pdf"){exportPDF(profile,logs,avgJ,avgP);showToast("✓ PDF gerado!");}
+    else openPrintReport(profile,logs,avgJ,avgP);
+  };
+
+  const enterProfile=useCallback((p)=>{setActiveProfile(p);setScreen("app");setTab("Dashboard");},[]);
+  const handleAdminClick=()=>setScreen("pin-admin");
+  const handlePinSuccess=()=>{
+    if(pendingProfile){enterProfile(pendingProfile);setPendingProfile(null);}
+    else setScreen("admin");
+  };
+
+  const SLABELS={offline:"sem sync",syncing:"sincronizando...",synced:"sincronizado ✓",error:"erro de sync"};
+  const hDate=new Date().toLocaleDateString("pt-BR",{weekday:"long",day:"numeric",month:"long"});
+  const header=React.createElement("div",{className:"header"},React.createElement("h1",null,"🩸 Monitoramento Glicêmico"));
+
+  // ── PATIENT FLOW ──────────────────────────────────────────────────────────
+  if(isPatientLink){
+    if(screen==="password"){
+      const pData=LS.get("profile-data-"+profileId);
+      return React.createElement("div",{className:"app"},
+        header,
+        React.createElement(PasswordScreen,{
+          profileName:pData?.name||"Seu perfil",
+          onSuccess:()=>{sessionStorage.setItem("auth-"+profileId,"1");setScreen("app");}
+        })
+      );
+    }
+    // app screen for patient
+    if(!loaded)return React.createElement("div",{className:"app"},header,
+      React.createElement("div",{className:"empty"},React.createElement("div",{className:"icon"},"⏳"),React.createElement("p",null,"Carregando..."))
+    );
+    return React.createElement("div",{className:"app"},
+      React.createElement("div",{className:"header"},
+        React.createElement("h1",null,"🩸 Monitoramento Glicêmico"),
+        React.createElement("div",{className:"header-row"},
+          React.createElement("p",null,(profile.nome||activeProfile?.name||"—")+" · "+hDate),
+          React.createElement("span",{className:"sync-badge "+syncStatus},SLABELS[syncStatus])
+        )
+      ),
+      React.createElement("div",{className:"tabs"},TABS.map(t=>React.createElement("button",{key:t,className:"tab-btn"+(tab===t?" active":""),onClick:()=>setTab(t)},t))),
+      React.createElement("div",{className:"content"},
+        tab==="Dashboard"&&React.createElement(TabDashboard,{logs,avgJ,avgP,onExport:handleExport,meds}),
+        tab==="Registrar"&&React.createElement(TabRegistrar,{logs,setLogs,sync:syncLogs,profile,saving,showToast,editLog,clearEdit,meds}),
+        tab==="Histórico"&&React.createElement(TabHistorico,{logs,setLogs,sync:syncLogs,onEdit:handleEdit,meds}),
+        tab==="Perfil"&&React.createElement(TabPerfil,{profile,setProfile,save:saveProfile,saving,resetGist:()=>sessionStorage.removeItem("auth-"+profileId)&&setScreen("password"),onExport:handleExport,meds})
+      ),
+      toast&&React.createElement("div",{className:"toast "+(toast.type||"success")},toast.msg)
+    );
+  }
+
+  // ── ADMIN FLOW ────────────────────────────────────────────────────────────
+  if(screen==="profiles"||screen==="pin-admin"){
+    const profiles=LS.get("profiles")||[];
+    if(profiles.length===0&&screen==="profiles"){
+      return React.createElement("div",{className:"app"},header,
+        React.createElement("div",{className:"content"},
+          React.createElement("div",{className:"info-box"},"Nenhum perfil cadastrado. Entre como Admin para adicionar."),
+          React.createElement("div",{className:"profile-card admin-card",onClick:handleAdminClick},
+            React.createElement("div",{className:"profile-avatar"},"🛡️"),
+            React.createElement("div",{className:"profile-info"},React.createElement("div",{className:"profile-name"},"Admin"),React.createElement("div",{className:"profile-sub"},"Cadastrar perfis")),
+            React.createElement("div",{className:"profile-arrow"},"›")
+          )
+        ),
+        screen==="pin-admin"&&React.createElement(PinModal,{onSuccess:handlePinSuccess,onCancel:()=>setScreen("profiles")})
+      );
+    }
+    return React.createElement("div",{className:"app"},
+      header,
+      React.createElement(ProfileSelector,{onSelect:enterProfile,onAdmin:handleAdminClick}),
+      screen==="pin-admin"&&React.createElement(PinModal,{onSuccess:handlePinSuccess,onCancel:()=>setScreen("profiles")})
+    );
+  }
+
+  if(screen==="admin"){
+    return React.createElement("div",{className:"app"},
+      header,
+      React.createElement(AdminPanel,{onSelectProfile:enterProfile,onClose:()=>setScreen("profiles"),showToast}),
+      toast&&React.createElement("div",{className:"toast "+(toast.type||"success")},toast.msg)
+    );
+  }
+
+  // admin opened a patient profile directly
+  if(!loaded)return React.createElement("div",{className:"app"},header,
+    React.createElement("div",{className:"empty"},React.createElement("div",{className:"icon"},"⏳"),React.createElement("p",null,"Carregando dados de ",React.createElement("strong",null,activeProfile?.name||"...")))
+  );
+  return React.createElement("div",{className:"app"},
+    React.createElement("div",{className:"header"},
+      React.createElement("h1",null,"🩸 Monitoramento Glicêmico"),
+      React.createElement("div",{className:"header-row"},
+        React.createElement("p",null,(profile.nome||activeProfile?.name||"—")+" · "+hDate),
+        React.createElement("div",{style:{display:"flex",gap:6,alignItems:"center",flexShrink:0}},
+          React.createElement("span",{className:"sync-badge "+syncStatus},SLABELS[syncStatus]),
+          React.createElement("button",{className:"switch-btn",onClick:()=>setShowSwitcher(true)},"↕ trocar")
+        )
+      )
+    ),
+    React.createElement("div",{className:"tabs"},TABS.map(t=>React.createElement("button",{key:t,className:"tab-btn"+(tab===t?" active":""),onClick:()=>setTab(t)},t))),
+    React.createElement("div",{className:"content"},
+      tab==="Dashboard"&&React.createElement(TabDashboard,{logs,avgJ,avgP,onExport:handleExport,meds}),
+      tab==="Registrar"&&React.createElement(TabRegistrar,{logs,setLogs,sync:syncLogs,profile,saving,showToast,editLog,clearEdit,meds}),
+      tab==="Histórico"&&React.createElement(TabHistorico,{logs,setLogs,sync:syncLogs,onEdit:handleEdit,meds}),
+      tab==="Perfil"&&React.createElement(TabPerfil,{profile,setProfile,save:saveProfile,saving,resetGist:()=>setScreen("profiles"),onExport:handleExport,meds})
+    ),
+    showSwitcher&&React.createElement("div",{className:"pin-overlay",onClick:()=>setShowSwitcher(false)},
+      React.createElement("div",{className:"pin-sheet"},
+        React.createElement("p",{className:"pin-title",style:{marginBottom:16}},"Trocar perfil"),
+        (LS.get("profiles")||[]).map((p,i)=>{
+          const emojis=["🌸","🌻","🌺","🦋","🌙","⭐"];
+          const isActive=p.gistId===activeProfile?.gistId;
+          return React.createElement("div",{key:p.gistId,className:"profile-card",style:{marginBottom:10,opacity:isActive?.6:1,cursor:isActive?"default":"pointer"},
+            onClick:()=>{if(!isActive){setShowSwitcher(false);enterProfile(p);}}},
+            React.createElement("div",{className:"profile-avatar"},emojis[i%emojis.length]),
+            React.createElement("div",{className:"profile-info"},React.createElement("div",{className:"profile-name"},p.name),React.createElement("div",{className:"profile-sub"},isActive?"perfil atual":"toque para entrar")),
+            isActive&&React.createElement("div",{style:{fontSize:11,color:"#4ade80",fontWeight:600}},"✓")
+          );
+        }),
+        React.createElement("div",{className:"profile-card admin-card",style:{marginBottom:0},onClick:()=>{setShowSwitcher(false);setScreen("profiles");}},
+          React.createElement("div",{className:"profile-avatar"},"🛡️"),
+          React.createElement("div",{className:"profile-info"},React.createElement("div",{className:"profile-name"},"Sair para seleção"),React.createElement("div",{className:"profile-sub"},"Voltar à tela inicial")),
+          React.createElement("div",{className:"profile-arrow"},"›")
+        )
+      )
+    ),
+    toast&&React.createElement("div",{className:"toast "+(toast.type||"success")},toast.msg)
+  );
+}
+ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(App));
 
   // ── App state ──
   const[tab,setTab]=useState("Dashboard");
