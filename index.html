@@ -4,130 +4,81 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Monitoramento Glicêmico</title>
-<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <style>
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-    body{background:#0f1117;color:#e8e4df;font-family:'DM Sans',sans-serif;min-height:100dvh}
-    .app{max-width:480px;margin:0 auto;padding-bottom:80px}
-    .header{padding:40px 20px 20px;background:#1a1f2e;border-bottom:1px solid rgba(255,255,255,0.05)}
-    .card{background:#1a1f2e;border-radius:16px;padding:20px;margin:20px;border:1px solid rgba(255,255,255,0.1)}
-    .stat-row{display:flex;gap:10px;margin-top:10px}
-    .stat-pill{flex:1;background:rgba(255,255,255,0.05);padding:15px;border-radius:12px;text-align:center}
-    .val{font-size:28px;font-weight:700;color:#e8c4a0}
-    .tabs{position:fixed;bottom:0;width:100%;max-width:480px;display:flex;background:#1a1f2e;border-top:1px solid rgba(255,255,255,0.1)}
-    .tab-btn{flex:1;padding:20px;color:#7c7a76;background:none;border:none;font-weight:600}
-    .tab-btn.active{color:#e8c4a0}
-    .btn-primary{width:100%;padding:15px;background:#e8c4a0;color:#0f1117;border:none;border-radius:12px;font-weight:700;cursor:pointer}
-    .field input{width:100%;padding:12px;background:#252b3b;border:1px solid rgba(255,255,255,0.1);color:#fff;border-radius:8px;margin-top:8px;font-size:16px}
+    body{background:#0f1117;color:#e8e4df;font-family:'DM Sans',sans-serif;min-height:100dvh;overscroll-behavior:none}
+    .app{max-width:480px;margin:0 auto;display:flex;flex-direction:column;min-height:100dvh}
+    .header{padding:50px 20px 20px;background:#1a1f2e;border-bottom:1px solid rgba(255,255,255,0.05);display:flex;justify-content:space-between;align-items:center}
+    .card{background:#1a1f2e;border-radius:16px;padding:20px;margin:20px;border:1px solid rgba(255,255,255,0.1);box-shadow:0 4px 20px rgba(0,0,0,0.3)}
+    .val{font-size:36px;font-weight:700;color:#e8c4a0;line-height:1}
+    .label{font-size:12px;color:#7c7a76;margin-top:8px;text-transform:uppercase;letter-spacing:1px}
+    .tabs{position:fixed;bottom:0;width:100%;max-width:480px;display:flex;background:#1a1f2e;border-top:1px solid rgba(255,255,255,0.1);padding-bottom:env(safe-area-inset-bottom)}
+    .tab-btn{flex:1;padding:20px;color:#5c5a56;background:none;border:none;font-weight:600;cursor:pointer}
+    .tab-btn.active{color:#e8c4a0;border-bottom:2px solid #e8c4a0}
+    .btn-primary{width:100%;padding:16px;background:linear-gradient(135deg,#e8c4a0,#d4a574);color:#0f1117;border:none;border-radius:12px;font-weight:700;font-size:16px;cursor:pointer;margin-top:10px}
+    .field{margin-bottom:15px}
+    .field label{display:block;font-size:13px;color:#7c7a76;margin-bottom:8px}
+    .field input{width:100%;padding:14px;background:#252b3b;border:1px solid rgba(255,255,255,0.1);color:#fff;border-radius:10px;font-size:16px;outline:none}
+    .log-item{padding:12px;border-bottom:1px solid rgba(255,255,255,0.05);display:flex;justify-content:space-between;font-size:14px}
+    .status-dot{width:8px;height:8px;background:#4ade80;border-radius:50%;display:inline-block;margin-right:6px}
 </style>
 </head>
 <body>
 <div id="root"></div>
+
 <script>
 const {useState, useEffect, useCallback} = React;
 
-const LS = {
-    get: k => JSON.parse(localStorage.getItem(k)),
-    set: (k, v) => localStorage.setItem(k, JSON.stringify(v))
+// CONFIGURAÇÃO MANUAL (COLE SEUS DADOS AQUI)
+const CONFIG = {
+    TOKEN: "COLE_AQUI_SEU_GITHUB_TOKEN", 
+    GIST_ID: "COLE_AQUI_O_ID_DO_SEU_GIST"
 };
 
 function App() {
-    // Tenta pegar da URL
-    const params = new URLSearchParams(window.location.search);
-    const [token, setToken] = useState(params.get('token') || LS.get('gist-token') || "");
-    const [id, setId] = useState(params.get('id') || LS.get('gist-id') || "");
-    
     const [data, setData] = useState(null);
     const [tab, setTab] = useState("Dashboard");
     const [loading, setLoading] = useState(true);
 
-    // Salva no LS se veio da URL
-    useEffect(() => {
-        if (params.get('token')) LS.set('gist-token', params.get('token'));
-        if (params.get('id')) LS.set('gist-id', params.get('id'));
-    }, []);
-
     const fetchData = useCallback(async () => {
-        if (!token || !id) { setLoading(false); return; }
+        if (!CONFIG.TOKEN || CONFIG.TOKEN.includes("COLE_AQUI")) {
+            setLoading(false);
+            return;
+        }
         try {
-            const r = await fetch(`https://api.github.com/gists/${id}`, {
-                headers: { Authorization: `token ${token}` }
+            const r = await fetch(`https://api.github.com/gists/${CONFIG.GIST_ID}`, {
+                headers: { 'Authorization': `token ${CONFIG.TOKEN}`, 'Cache-Control': 'no-cache' }
             });
             const g = await r.json();
             const content = g.files["glicemia-data.json"]?.content;
-            if (content) setData(JSON.parse(content));
-            else setData({ profiles: [{ id:1, nome: "Wagner", logs: [] }] });
+            
+            if (content) {
+                setData(JSON.parse(content));
+            } else {
+                setData({ profiles: [{ id: "admin", nome: "Wagner", logs: [] }] });
+            }
         } catch (e) {
-            console.error(e);
+            console.error("Erro na conexão");
         } finally {
             setLoading(false);
         }
-    }, [token, id]);
+    }, []);
 
     useEffect(() => { fetchData(); }, [fetchData]);
 
-    const saveEntry = async (j, p) => {
-        const newLog = { data: new Date().toLocaleDateString('pt-BR'), jejum: j, pos_cafe: p };
-        const newData = data ? {...data} : { profiles: [{ id:1, nome: "Wagner", logs: [] }] };
-        newData.profiles[0].logs.unshift(newLog);
-        
-        setData(newData);
-        await fetch(`https://api.github.com/gists/${id}`, {
-            method: "PATCH",
-            headers: { Authorization: `token ${token}` },
-            body: JSON.stringify({ files: { "glicemia-data.json": { content: JSON.stringify(newData) } } })
-        });
-        setTab("Dashboard");
-    };
+    const saveEntry = async () => {
+        const j = document.getElementById("inj").value;
+        const p = document.getElementById("inp").value;
+        if (!j && !p) return;
 
-    if (loading) return React.createElement("div", {style:{padding:40}}, "A ligar ao GitHub...");
-    if (!token || !id) return React.createElement("div", {style:{padding:40}}, "Erro: Token ou ID não encontrados no link.");
+        const newLog = { 
+            data: new Date().toLocaleDateString('pt-BR'), 
+            jejum: j, 
+            pos_cafe: p 
+        };
 
-    const logs = data?.profiles[0]?.logs || [];
-    const avgJ = logs.length ? Math.round(logs.slice(0,7).reduce((a,b)=>a+(Number(b.jejum)||0),0) / (logs.slice(0,7).filter(x=>x.jejum).length || 1)) : 0;
-
-    return React.createElement("div", {className:"app"},
-        React.createElement("header", {className:"header"}, 
-            React.createElement("h1", null, "Glicemia"),
-            React.createElement("p", {style:{fontSize:12, color:'#7c7a76'}}, "Olá, " + (data?.profiles[0]?.nome || "Utilizador"))
-        ),
-        
-        tab === "Dashboard" && React.createElement("div", null,
-            React.createElement("div", {className:"card"},
-                React.createElement("div", null, "Média Jejum (7 dias)"),
-                React.createElement("div", {className:"val"}, avgJ || "—"),
-                React.createElement("div", {style:{marginTop:20}}, "Últimos Registos:"),
-                logs.slice(0,3).map((l,i) => React.createElement("div", {key:i, style:{fontSize:13, marginTop:10, padding:'10px', background:'rgba(255,255,255,0.03)', borderRadius:8}}, 
-                    `${l.data}: ${l.jejum || '—'} mg/dL`
-                ))
-            )
-        ),
-
-        tab === "Registrar" && React.createElement("div", {className:"card"},
-            React.createElement("div", {className:"field"}, 
-                React.createElement("label", null, "Jejum"),
-                React.createElement("input", {id:"inj", type:"number"})
-            ),
-            React.createElement("div", {className:"field", style:{margin:'15px 0'}}, 
-                React.createElement("label", null, "Pós-Café"),
-                React.createElement("input", {id:"inp", type:"number"})
-            ),
-            React.createElement("button", {className:"btn-primary", onClick: () => saveEntry(document.getElementById("inj").value, document.getElementById("inp").value)}, "Gravar Agora")
-        ),
-
-        React.createElement("nav", {className:"tabs"},
-            ["Dashboard", "Registrar"].map(t => React.createElement("button", {
-                key:t, 
-                className:`tab-btn ${tab===t?'active':''}`,
-                onClick:()=>setTab(t)
-            }, t))
-        )
-    );
-}
-
-ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(App));
-</script>
-</body>
-</html>
+        const newData = data ? {...data} : { profiles: [{ id: "admin", nome: "Wagner", logs: [] }] };
+        newData.profiles[0].logs.unshift(newLog
