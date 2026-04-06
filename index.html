@@ -387,10 +387,10 @@ function TabRegistrar({logs,setLogs,sync,profile,saving,showToast,editLog,clearE
     React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}},React.createElement("p",{className:"section-title",style:{marginBottom:0}},isEditing?`Editando — ${fmt(form.data)}`:"Registro de hoje"),isEditing&&React.createElement("button",{onClick:()=>{if(clearEdit)clearEdit();setForm(logs.find(l=>l.data===todayStr())||blank());},style:{background:"rgba(255,255,255,0.07)",border:"1px solid rgba(255,255,255,0.1)",borderRadius:8,padding:"6px 12px",fontSize:12,color:"#9c9a96",cursor:"pointer",fontFamily:"'DM Sans',sans-serif"}},"✕ Cancelar")),
     !notifAsked&&React.createElement("div",{className:"alarm-banner"},React.createElement("div",{className:"icon"},"🔔"),React.createElement("div",{className:"text"},React.createElement("div",{className:"title"},"Ativar alertas de remédios"),React.createElement("div",{className:"sub"},"Notificações nos horários certos")),React.createElement("button",{onClick:enableNotifs,style:{background:"#fbbf24",color:"#0f1117",border:"none",borderRadius:8,padding:"8px 14px",fontSize:12,fontWeight:700,cursor:"pointer",flexShrink:0,fontFamily:"'DM Sans',sans-serif"}},"Ativar")),
     React.createElement("div",{className:"card"},React.createElement("p",{className:"card-title"},"Data"),React.createElement("div",{className:"field"},React.createElement("input",{type:"date",value:form.data,onChange:f("data")}))),
-    meds.length>0&&React.createElement("div",{className:"card"},React.createElement("p",{className:"card-title"},"Remédios tomados"),meds.map(med=>React.createElement("div",{key:med.id,className:`med-item ${form.meds?.[med.id]?"taken":""}`,onClick:()=>toggleMed(med.id)},React.createElement("div",{className:"med-check"},form.meds?.[med.id]&&"✓"),React.createElement("div",{className:"med-info"},React.createElement("div",{className:"med-name"},med.name," ",React.createElement("span",{style:{fontSize:11,fontWeight:400,color:form.meds?.[med.id]?"#4ade8099":"#5c5a56"}},med.dose)),React.createElement("div",{className:"med-time"},med.label)),React.createElement("div",{style:{fontSize:12,color:form.meds?.[med.id]?"#4ade80":"#5c5a56",flexShrink:0}},med.alarm)))),
+    meds.length>0&&React.createElement("div",{className:"card"},React.createElement("p",{className:"card-title"},"Remédios tomados"),meds.map(med=>React.createElement("div",{key:med.id,className:"med-item"+(form.meds?.[med.id]?" taken":""),onClick:()=>toggleMed(med.id)},React.createElement("div",{className:"med-check"},form.meds?.[med.id]&&"✓"),React.createElement("div",{className:"med-info"},React.createElement("div",{className:"med-name"},med.name," ",React.createElement("span",{style:{fontSize:11,fontWeight:400,color:form.meds?.[med.id]?"#4ade8099":"#5c5a56"}},med.dose)),React.createElement("div",{className:"med-time"},med.label)),React.createElement("div",{style:{fontSize:12,color:form.meds?.[med.id]?"#4ade80":"#5c5a56",flexShrink:0}},med.alarm)))),
     React.createElement("div",{className:"card"},React.createElement("p",{className:"card-title"},"Glicemia"),React.createElement("div",{className:"row-2"},React.createElement("div",{className:"field"},React.createElement("label",null,"Jejum (ao acordar)"),React.createElement("input",{type:"number",placeholder:"95",value:form.jejum,onChange:f("jejum"),inputMode:"numeric"}),js&&React.createElement("p",{style:{fontSize:11,marginTop:4,color:SC[js]}},SL[js])),React.createElement("div",{className:"field"},React.createElement("label",null,"Pós-café (2h depois)"),React.createElement("input",{type:"number",placeholder:"130",value:form.pos_cafe,onChange:f("pos_cafe"),inputMode:"numeric"}),ps&&React.createElement("p",{style:{fontSize:11,marginTop:4,color:SC[ps]}},SL[ps])))),
     React.createElement("div",{className:"card"},React.createElement("p",{className:"card-title"},"Peso"),React.createElement("div",{className:"field"},React.createElement("label",null,"Peso (kg)"),React.createElement("input",{type:"number",placeholder:"72.5",value:form.peso,onChange:f("peso"),inputMode:"decimal",step:"0.1"}))),
-    React.createElement("div",{className:"card"},React.createElement("p",{className:"card-title"},"Reações / sintomas"),React.createElement("div",{className:"chip-grid"},REACTION_CHIPS.map(c=>React.createElement("button",{key:c,className:`chip ${form.rxChips?.includes(c)?"selected":""}`,onClick:()=>toggleChip(c)},c))),React.createElement("div",{className:"field"},React.createElement("label",null,"Observações adicionais"),React.createElement("textarea",{placeholder:"ex: dor de cabeça forte por volta das 10h...",value:form.rxObs||"",onChange:f("rxObs")}))),
+    React.createElement("div",{className:"card"},React.createElement("p",{className:"card-title"},"Reações / sintomas"),React.createElement("div",{className:"chip-grid"},REACTION_CHIPS.map(c=>React.createElement("button",{key:c,className:"chip"+(form.rxChips?.includes(c)?" selected":""),onClick:()=>toggleChip(c)},c))),React.createElement("div",{className:"field"},React.createElement("label",null,"Observações adicionais"),React.createElement("textarea",{placeholder:"ex: dor de cabeça forte por volta das 10h...",value:form.rxObs||"",onChange:f("rxObs")}))),
     React.createElement("div",{className:"card"},React.createElement("p",{className:"card-title"},"Notas do dia"),React.createElement("div",{className:"field"},React.createElement("textarea",{placeholder:"ex: dormiu mal, comeu fora...",value:form.obs,onChange:f("obs")}))),
     React.createElement("button",{className:"btn-primary",onClick:save,disabled:saving},saving?"Salvando...":(isEditing?"Atualizar registro":"Salvar registro do dia"))
   );
@@ -532,7 +532,7 @@ function PinModal({title,sub,onSuccess,onCancel}){
       React.createElement("p",{className:"pin-title"},title||"🔐 PIN Admin"),
       React.createElement("p",{className:"pin-sub"},sub||(LS.get("admin-pin-hash")?"Digite seu PIN":"Crie um PIN de 4 dígitos")),
       React.createElement("div",{className:"pin-dots"},
-        [0,1,2,3].map(i=>React.createElement("div",{key:i,className:`pin-dot ${digits.length>i?"filled":""}`))),
+        [0,1,2,3].map(i=>React.createElement("div",{key:i,className:"pin-dot"+(digits.length>i?" filled":"")}))),
       React.createElement("div",{className:"pin-grid"},
         keys.map((k,i)=>
           k===""?React.createElement("div",{key:i,className:"pin-btn empty"}):
@@ -813,7 +813,7 @@ function App(){
         onClose:()=>setScreen("profiles"),
         showToast
       }),
-      toast&&React.createElement("div",{className:`toast ${toast.type}`},toast.msg)
+      toast&&React.createElement("div",{className:"toast "+(toast.type||"success")},toast.msg)
     );
   }
 
@@ -829,12 +829,12 @@ function App(){
       React.createElement("div",{className:"header-row"},
         React.createElement("p",null,`${profile.nome||activeProfile?.name||"—"} · ${hDate}`),
         React.createElement("div",{style:{display:"flex",gap:6,alignItems:"center",flexShrink:0}},
-          React.createElement("span",{className:`sync-badge ${syncStatus}`},SLABELS[syncStatus]),
+          React.createElement("span",{className:"sync-badge "+syncStatus},SLABELS[syncStatus]),
           React.createElement("button",{className:"switch-btn",onClick:handleSwitchRequest},"↕ trocar")
         )
       )
     ),
-    React.createElement("div",{className:"tabs"},TABS.map(t=>React.createElement("button",{key:t,className:`tab-btn ${tab===t?"active":""}`,onClick:()=>setTab(t)},t))),
+    React.createElement("div",{className:"tabs"},TABS.map(t=>React.createElement("button",{key:t,className:"tab-btn"+(tab===t?" active":""),onClick:()=>setTab(t)},t))),
     React.createElement("div",{className:"content"},
       tab==="Dashboard"&&React.createElement(TabDashboard,{logs,avgJ,avgP,onExport:handleExport,meds}),
       tab==="Registrar"&&React.createElement(TabRegistrar,{logs,setLogs,sync:syncLogs,profile,saving,showToast,editLog,clearEdit,meds}),
@@ -864,7 +864,7 @@ function App(){
     showSwitcher&&screen!=="pin-admin"&&React.createElement(React.Fragment,null),
     // PIN for admin from switcher
     showSwitcher===false&&screen==="pin-admin"&&React.createElement(PinModal,{onSuccess:handlePinSuccess,onCancel:()=>setScreen("app")}),
-    toast&&React.createElement("div",{className:`toast ${toast.type}`},toast.msg)
+    toast&&React.createElement("div",{className:"toast "+(toast.type||"success")},toast.msg)
   );
 }
 ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(App));
