@@ -485,7 +485,13 @@ function App(){
     if(!configured){setLoaded(true);return}
     setSyncStatus("syncing");
     gistLoad(token,gistId).then(d=>{
-      if(d){if(d.profile)setProfile(d.profile);if(d.logs)setLogs(d.logs);}
+      if(d){
+        if(d.profile)setProfile(p=>({...p,...d.profile}));
+        // suporta formato antigo (readings) e novo (logs)
+        const entries=d.logs||d.readings||[];
+        // migra registros antigos que não têm campo meds/rxChips
+        setLogs(entries.map(r=>({meds:{},rxChips:[],rxObs:"",...r})));
+      }
       setSyncStatus("synced");setLoaded(true);
     }).catch(e=>{console.error(e);setSyncStatus("error");setLoaded(true);showToast("Erro ao carregar dados","error")});
   },[]);
