@@ -3,196 +3,898 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>Monitoramento Glicêmico Pro</title>
-<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+
+<!-- PWA / iOS -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Glicemia">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0f1117">
+<meta name="description" content="Acompanhamento de glicemia, remédios e sintomas">
+
+<!-- Manifest -->
+<link rel="manifest" href="manifest.json">
+
+<!-- iOS splash / icon fallback -->
+<link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'><rect width='180' height='180' rx='38' fill='%231a1f2e'/><text y='130' x='90' text-anchor='middle' font-size='100'>🩸</text></svg>">
+
+<title>Monitoramento Glicêmico</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <style>
-    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-    body{background:#0f1117;color:#e8e4df;font-family:'DM Sans',sans-serif;min-height:100dvh;overscroll-behavior:none}
-    .app{max-width:480px;margin:0 auto;display:flex;flex-direction:column;min-height:100dvh}
-    .header{padding:50px 20px 20px;background:linear-gradient(160deg,#1a1f2e 0%,#0f1117 100%);border-bottom:1px solid rgba(255,255,255,0.06);display:flex;justify-content:space-between;align-items:center}
-    .header h1{font-family:'DM Serif Display',serif;font-size:24px;color:#e8c4a0}
-    .card{background:#1a1f2e;border:1px solid rgba(255,255,255,0.07);border-radius:16px;padding:20px;margin:15px;box-shadow:0 10px 30px rgba(0,0,0,0.4)}
-    .stat-pill{flex:1;background:rgba(255,255,255,0.03);border-radius:12px;padding:15px;text-align:center;border:1px solid rgba(255,255,255,0.05)}
-    .val{font-size:32px;font-weight:600;color:#e8c4a0}
-    .label{font-size:11px;text-transform:uppercase;color:#7c7a76;margin-top:5px;letter-spacing:1px}
-    .tabs{position:fixed;bottom:0;width:100%;max-width:480px;display:flex;background:rgba(26,31,46,0.95);backdrop-filter:blur(10px);border-top:1px solid rgba(255,255,255,0.08);padding-bottom:env(safe-area-inset-bottom)}
-    .tab-btn{flex:1;padding:20px;color:#5c5a56;background:none;border:none;font-weight:600;font-size:12px;cursor:pointer}
-    .tab-btn.active{color:#e8c4a0;box-shadow:inset 0 2px 0 #e8c4a0}
-    .profile-item{background:rgba(255,255,255,0.03);padding:15px;border-radius:12px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;border:1px solid rgba(255,255,255,0.05);cursor:pointer}
-    .btn-primary{width:100%;padding:16px;background:linear-gradient(135deg,#e8c4a0,#d4a574);color:#0f1117;border:none;border-radius:12px;font-weight:700;margin-top:15px;cursor:pointer}
-    .field input{width:100%;padding:14px;background:#252b3b;border:1px solid rgba(255,255,255,0.1);color:#fff;border-radius:10px;margin-top:8px;font-size:16px}
-    .overlay{position:fixed;inset:0;background:rgba(15,17,23,0.98);z-index:100;padding:40px 20px;display:flex;flex-direction:column}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{height:100%;-webkit-text-size-adjust:100%}
+body{background:#0f1117;color:#e8e4df;font-family:'DM Sans',sans-serif;min-height:100dvh;overscroll-behavior:none}
+#root{display:flex;flex-direction:column;min-height:100dvh}
+.app{max-width:480px;margin:0 auto;min-height:100dvh;display:flex;flex-direction:column}
+
+/* Header — Dynamic Island safe area */
+.header{
+  padding:calc(env(safe-area-inset-top,0px) + 20px) 20px 16px;
+  padding-left:calc(env(safe-area-inset-left,0px) + 20px);
+  padding-right:calc(env(safe-area-inset-right,0px) + 20px);
+  background:linear-gradient(160deg,#1a1f2e 0%,#0f1117 100%);
+  border-bottom:1px solid rgba(255,255,255,0.06)
+}
+.header h1{font-family:'DM Serif Display',serif;font-size:22px;color:#e8c4a0;letter-spacing:-0.3px}
+.header-row{display:flex;align-items:center;justify-content:space-between;margin-top:4px;gap:8px}
+.header p{font-size:12px;color:#7c7a76;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sync-badge{font-size:11px;padding:3px 10px;border-radius:100px;font-weight:600;flex-shrink:0}
+.sync-badge.synced{background:rgba(74,222,128,0.15);color:#4ade80}
+.sync-badge.syncing{background:rgba(251,191,36,0.15);color:#fbbf24}
+.sync-badge.error{background:rgba(248,113,113,0.15);color:#f87171}
+.sync-badge.offline{background:rgba(255,255,255,0.07);color:#7c7a76}
+
+.tabs{display:flex;overflow-x:auto;scrollbar-width:none;background:#0f1117;border-bottom:1px solid rgba(255,255,255,0.06);position:sticky;top:0;z-index:10}
+.tabs::-webkit-scrollbar{display:none}
+.tab-btn{flex-shrink:0;padding:13px 14px;font-size:13px;font-weight:500;color:#5c5a56;background:none;border:none;border-bottom:2px solid transparent;cursor:pointer;transition:all .2s;font-family:'DM Sans',sans-serif;-webkit-tap-highlight-color:transparent}
+.tab-btn.active{color:#e8c4a0;border-bottom-color:#e8c4a0}
+
+/* Content — gesture bar safe area */
+.content{
+  flex:1;padding:20px;overflow-y:auto;
+  padding-bottom:calc(env(safe-area-inset-bottom,0px) + 24px);
+  padding-left:calc(env(safe-area-inset-left,0px) + 20px);
+  padding-right:calc(env(safe-area-inset-right,0px) + 20px);
+}
+
+.card{background:#1a1f2e;border:1px solid rgba(255,255,255,0.07);border-radius:16px;padding:18px;margin-bottom:14px}
+.card-title{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#7c7a76;margin-bottom:12px;font-weight:600}
+.stat-row{display:flex;gap:10px}
+.stat-pill{flex:1;background:rgba(255,255,255,0.04);border-radius:12px;padding:14px 10px;text-align:center}
+.stat-pill .val{font-size:26px;font-weight:600;line-height:1}
+.stat-pill .unit{font-size:11px;color:#7c7a76;margin-top:3px}
+.stat-pill .lbl{font-size:11px;color:#9c9a96;margin-top:6px}
+.badge{display:inline-block;padding:3px 10px;border-radius:100px;font-size:11px;font-weight:600}
+.field{margin-bottom:14px}
+.field label{display:block;font-size:12px;color:#9c9a96;margin-bottom:6px;font-weight:500}
+.field input,.field textarea{
+  width:100%;background:#252b3b;border:1px solid rgba(255,255,255,0.1);
+  border-radius:10px;padding:12px 14px;font-size:16px;color:#e8e4df;
+  font-family:'DM Sans',sans-serif;outline:none;transition:border-color .2s;
+  -webkit-appearance:none;appearance:none
+}
+.field input:focus,.field textarea:focus{border-color:#e8c4a0}
+.field textarea{resize:vertical;min-height:70px}
+.row-2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.btn-primary{width:100%;background:linear-gradient(135deg,#e8c4a0 0%,#d4a574 100%);color:#0f1117;border:none;border-radius:12px;padding:15px;font-size:15px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;-webkit-tap-highlight-color:transparent}
+.btn-primary:active{opacity:.85}
+.btn-primary:disabled{opacity:.5;cursor:not-allowed}
+.btn-secondary{background:rgba(255,255,255,0.07);color:#e8e4df;border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:11px 16px;font-size:13px;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif;-webkit-tap-highlight-color:transparent;width:100%;margin-top:10px}
+.btn-ghost{background:none;color:#9c9a96;border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:11px 16px;font-size:13px;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif;-webkit-tap-highlight-color:transparent;width:100%;margin-top:10px}
+.list-item{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:12px;padding:14px;margin-bottom:10px}
+.list-item .date{font-size:11px;color:#7c7a76;margin-bottom:7px}
+.list-item .values{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+.list-item .val-item{font-size:13px}
+.list-item .val-item span{font-weight:600;font-size:15px}
+.chip-grid{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+.chip{padding:7px 14px;border-radius:100px;font-size:13px;border:1px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.04);cursor:pointer;transition:all .15s;font-family:'DM Sans',sans-serif;color:#e8e4df;-webkit-tap-highlight-color:transparent}
+.chip.selected{background:rgba(232,196,160,0.2);border-color:#e8c4a0;color:#e8c4a0}
+.toast{
+  position:fixed;
+  bottom:calc(env(safe-area-inset-bottom,0px) + 24px);
+  left:50%;transform:translateX(-50%);
+  padding:11px 22px;border-radius:100px;font-size:13px;font-weight:600;
+  z-index:200;animation:toastIn .3s ease;white-space:nowrap
+}
+.toast.success{background:#4ade80;color:#0f1117}
+.toast.error{background:#f87171;color:#0f1117}
+@keyframes toastIn{from{opacity:0;transform:translateX(-50%) translateY(10px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+.section-title{font-family:'DM Serif Display',serif;font-size:20px;color:#e8c4a0;margin-bottom:16px;font-style:italic}
+.empty{text-align:center;color:#5c5a56;font-size:14px;padding:40px 20px}
+.empty .icon{font-size:40px;margin-bottom:12px}
+.info-box{background:rgba(232,196,160,0.08);border:1px solid rgba(232,196,160,0.2);border-radius:10px;padding:12px 14px;font-size:12px;color:#c4a07c;margin-bottom:16px;line-height:1.7}
+.warn-box{background:rgba(248,113,113,0.08);border:1px solid rgba(248,113,113,0.2);border-radius:10px;padding:12px 14px;font-size:12px;color:#fca5a5;margin-bottom:16px;line-height:1.7}
+.del-btn{background:none;border:none;color:#5c5a56;cursor:pointer;font-size:16px;padding:4px;float:right;-webkit-tap-highlight-color:transparent;margin-left:4px}
+.edit-btn{background:none;border:none;color:#7c7a76;cursor:pointer;font-size:13px;padding:4px 6px;float:right;-webkit-tap-highlight-color:transparent;border:1px solid rgba(255,255,255,0.1);border-radius:6px;font-family:'DM Sans',sans-serif}
+.install-banner{background:rgba(96,165,250,0.1);border:1px solid rgba(96,165,250,0.25);border-radius:12px;padding:14px;margin-bottom:16px;display:flex;align-items:flex-start;gap:12px}
+.install-banner .icon{font-size:22px;flex-shrink:0;margin-top:1px}
+.install-banner p{font-size:12px;color:#93c5fd;line-height:1.6}
+.install-banner strong{display:block;font-size:13px;color:#bfdbfe;margin-bottom:3px}
+.setup-wrap{padding:20px}
+.setup-card{background:#1a1f2e;border:1px solid rgba(232,196,160,0.25);border-radius:16px;padding:20px;margin-bottom:14px}
+.setup-card h2{font-family:'DM Serif Display',serif;font-size:20px;color:#e8c4a0;margin-bottom:6px}
+.setup-card p{font-size:13px;color:#9c9a96;margin-bottom:18px;line-height:1.6}
+.step{display:flex;gap:10px;margin-bottom:14px;font-size:13px;color:#c4c0bb;line-height:1.6;align-items:flex-start}
+.step-num{background:rgba(232,196,160,0.2);color:#e8c4a0;border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;margin-top:2px}
+.step a{color:#60a5fa;text-decoration:none}
+.divider{height:1px;background:rgba(255,255,255,0.06);margin:16px 0}
+.export-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px}
+.export-btn{background:#1a1f2e;border:1px solid rgba(255,255,255,0.1);border-radius:14px;padding:16px 12px;text-align:center;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.export-btn:active{opacity:.8}
+.export-btn .eb-icon{font-size:26px;margin-bottom:8px}
+.export-btn .eb-title{font-size:13px;font-weight:600;color:#e8e4df;margin-bottom:3px}
+.export-btn .eb-sub{font-size:11px;color:#7c7a76;line-height:1.4}
+.export-btn.pdf-btn{border-color:rgba(248,113,113,0.3)}
+.export-btn.html-btn{border-color:rgba(96,165,250,0.3)}
+.med-item{display:flex;align-items:center;gap:12px;padding:12px 14px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:12px;margin-bottom:8px;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:all .15s}
+.med-item.taken{background:rgba(74,222,128,0.07);border-color:rgba(74,222,128,0.25)}
+.med-check{width:22px;height:22px;border-radius:50%;border:2px solid rgba(255,255,255,0.2);display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s}
+.med-item.taken .med-check{background:#4ade80;border-color:#4ade80;color:#0f1117;font-size:13px}
+.med-info{flex:1}
+.med-name{font-size:14px;font-weight:600;color:#e8e4df}
+.med-item.taken .med-name{color:#4ade80}
+.med-time{font-size:11px;color:#7c7a76;margin-top:2px}
+.alarm-banner{background:rgba(251,191,36,0.1);border:1px solid rgba(251,191,36,0.3);border-radius:12px;padding:14px;margin-bottom:14px;display:flex;align-items:center;gap:12px}
+.alarm-banner .icon{font-size:24px;flex-shrink:0}
+.alarm-banner .text{flex:1}
+.alarm-banner .title{font-size:14px;font-weight:600;color:#fbbf24}
+.alarm-banner .sub{font-size:12px;color:#9c9a96;margin-top:2px}
+.chart-container{width:100%;margin-top:12px;position:relative}
+.chart-svg{width:100%;height:160px;overflow:visible}
+.chart-tooltip{position:absolute;background:#252b3b;border:1px solid rgba(255,255,255,0.15);border-radius:8px;padding:8px 12px;font-size:12px;pointer-events:none;z-index:10;white-space:nowrap}
+.rx-tag{display:inline-block;background:rgba(192,132,252,0.15);border:1px solid rgba(192,132,252,0.3);color:#c084fc;border-radius:100px;padding:2px 8px;font-size:11px;margin:2px}
+
+/* Offline indicator */
+.offline-bar{background:#f87171;color:#0f1117;text-align:center;font-size:12px;font-weight:600;padding:6px;display:none}
+body.is-offline .offline-bar{display:block}
+/* Profile selector */
+.profile-screen{padding:24px 20px;flex:1}
+.profile-card{background:#1a1f2e;border:1px solid rgba(255,255,255,0.07);border-radius:16px;padding:18px 20px;margin-bottom:12px;display:flex;align-items:center;gap:14px;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:border-color .15s}
+.profile-card:active{opacity:.85}
+.profile-card.admin-card{border-color:rgba(232,196,160,0.3)}
+.profile-avatar{width:44px;height:44px;border-radius:50%;background:rgba(232,196,160,0.15);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
+.profile-card.admin-card .profile-avatar{background:rgba(232,196,160,0.25)}
+.profile-info{flex:1}
+.profile-name{font-size:15px;font-weight:600;color:#e8e4df}
+.profile-sub{font-size:12px;color:#7c7a76;margin-top:2px}
+.profile-arrow{color:#5c5a56;font-size:18px}
+/* PIN modal */
+.pin-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:300;display:flex;align-items:flex-end;justify-content:center}
+.pin-sheet{background:#1a1f2e;border-radius:20px 20px 0 0;padding:28px 24px calc(env(safe-area-inset-bottom,0px) + 28px);width:100%;max-width:480px}
+.pin-title{font-family:'DM Serif Display',serif;font-size:20px;color:#e8c4a0;margin-bottom:6px;text-align:center}
+.pin-sub{font-size:13px;color:#7c7a76;text-align:center;margin-bottom:20px}
+.pin-dots{display:flex;justify-content:center;gap:12px;margin-bottom:20px}
+.pin-dot{width:14px;height:14px;border-radius:50%;border:2px solid rgba(255,255,255,0.2);transition:all .15s}
+.pin-dot.filled{background:#e8c4a0;border-color:#e8c4a0}
+.pin-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.pin-btn{background:rgba(255,255,255,0.06);border:none;border-radius:12px;padding:18px;font-size:22px;font-weight:600;color:#e8e4df;cursor:pointer;font-family:'DM Sans',sans-serif;-webkit-tap-highlight-color:transparent;transition:background .1s}
+.pin-btn:active{background:rgba(255,255,255,0.14)}
+.pin-btn.del{font-size:18px;color:#7c7a76}
+.pin-btn.empty{background:none;cursor:default}
+.pin-error{color:#f87171;font-size:13px;text-align:center;margin-top:10px}
+/* Switcher button in header */
+.switch-btn{background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:5px 10px;font-size:11px;color:#9c9a96;cursor:pointer;font-family:'DM Sans',sans-serif;white-space:nowrap;flex-shrink:0;-webkit-tap-highlight-color:transparent}
 </style>
 </head>
 <body>
+<div class="offline-bar">📵 Sem conexão — usando dados em cache</div>
 <div id="root"></div>
-
 <script>
-const {useState, useEffect, useCallback} = React;
+const {useState,useEffect,useCallback,useRef}=React;
+const LS={
+  get:k=>{try{const r=localStorage.getItem(k);return r?JSON.parse(r):null}catch{return null}},
+  set:(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch{}}
+};
+const GIST_FILE="glicemia-data.json";
+async function gistLoad(token,id){
+  const r=await fetch(`https://api.github.com/gists/${id}`,{headers:{Authorization:`token ${token}`,Accept:"application/vnd.github+json"}});
+  if(!r.ok)throw new Error(`HTTP ${r.status}`);
+  const d=await r.json();const c=d.files?.[GIST_FILE]?.content;return c?JSON.parse(c):null;
+}
+async function gistSave(token,id,payload){
+  const r=await fetch(`https://api.github.com/gists/${id}`,{method:"PATCH",headers:{Authorization:`token ${token}`,Accept:"application/vnd.github+json","Content-Type":"application/json"},body:JSON.stringify({files:{[GIST_FILE]:{content:JSON.stringify(payload,null,2)}}})});
+  if(!r.ok)throw new Error(`HTTP ${r.status}`);
+}
+const todayStr=()=>new Date().toISOString().slice(0,10);
+const fmt=d=>{if(!d)return"—";const[y,m,dd]=d.split("-");return`${dd}/${m}/${y}`};
+const glicStatus=(v,type)=>{if(!v)return null;const n=Number(v);if(type==="jejum")return n<70?"low":n<=99?"ok":n<=125?"warn":"high";return n<70?"low":n<=139?"ok":n<=179?"warn":"high"};
+const SL={ok:"Normal",warn:"Elevada",high:"Alta",low:"Baixa"};
+const SC={ok:"#4ade80",warn:"#fbbf24",high:"#f87171",low:"#60a5fa"};
+const TABS=["Dashboard","Registrar","Histórico","Perfil"];
+const DEFAULT_MEDS=[];
+const REACTION_CHIPS=["Tontura","Náusea","Dor de cabeça","Suor frio","Tremor","Palpitação","Fraqueza","Visão turva","Irritabilidade","Sonolência","Fome excessiva","Formigamento","Inchaço","Dor abdominal","Sem reações"];
 
-const GITHUB_TOKEN = "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";
-const FILE_NAME = "glicemia-data.json";
-
-function App() {
-    const [gistId, setGistId] = useState(localStorage.getItem('glicemia_gist_id') || "");
-    const [data, setData] = useState(null);
-    const [activeProfile, setActiveProfile] = useState(null);
-    const [tab, setTab] = useState("Dashboard");
-    const [loading, setLoading] = useState(true);
-    const [showSwitcher, setShowSwitcher] = useState(false);
-
-    // Função para criar o Gist automaticamente se não existir
-    const createInitialGist = async () => {
-        const initialData = {
-            profiles: [
-                { id: "p1", nome: "Wagner", isAdmin: true, logs: [], pin: "1234" }
-            ]
-        };
-        try {
-            const r = await fetch("https://api.github.com/gists", {
-                method: "POST",
-                headers: { 'Authorization': `token ${GITHUB_TOKEN}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    description: "Dados de Glicemia",
-                    public: false,
-                    files: { [FILE_NAME]: { content: JSON.stringify(initialData) } }
-                })
-            });
-            const d = await r.json();
-            localStorage.setItem('glicemia_gist_id', d.id);
-            setGistId(d.id);
-            setData(initialData);
-            setActiveProfile(initialData.profiles[0]);
-        } catch (e) { alert("Erro ao criar Gist inicial"); }
-    };
-
-    const sync = useCallback(async (newData = null) => {
-        if (!gistId) { await createInitialGist(); setLoading(false); return; }
-        
-        const headers = { 'Authorization': `token ${GITHUB_TOKEN}` };
-        try {
-            if (newData) {
-                await fetch(`https://api.github.com/gists/${gistId}`, {
-                    method: "PATCH",
-                    headers,
-                    body: JSON.stringify({ files: { [FILE_NAME]: { content: JSON.stringify(newData) } } })
-                });
-            } else {
-                const r = await fetch(`https://api.github.com/gists/${gistId}`, { headers });
-                const g = await r.json();
-                const content = JSON.parse(g.files[FILE_NAME].content);
-                setData(content);
-                if (!activeProfile) setActiveProfile(content.profiles[0]);
-            }
-        } catch (e) { console.error("Erro de sincronização"); }
-        setLoading(false);
-    }, [gistId, activeProfile]);
-
-    useEffect(() => { sync(); }, [sync]);
-
-    const saveEntry = async () => {
-        const j = document.getElementById("inj").value;
-        const p = document.getElementById("inp").value;
-        if (!j) return;
-        const newLog = { data: new Date().toLocaleDateString('pt-BR'), jejum: j, pos_cafe: p };
-        const updatedProfile = { ...activeProfile, logs: [newLog, ...(activeProfile.logs || [])] };
-        const newData = { ...data, profiles: data.profiles.map(p => p.id === activeProfile.id ? updatedProfile : p) };
-        setData(newData); setActiveProfile(updatedProfile);
-        await sync(newData);
-        setTab("Dashboard");
-    };
-
-    const addProfile = async () => {
-        const nome = prompt("Nome do novo perfil:");
-        if (!nome) return;
-        const newP = { id: "p"+Date.now(), nome, isAdmin: false, logs: [] };
-        const newData = { ...data, profiles: [...data.profiles, newP] };
-        setData(newData);
-        await sync(newData);
-    };
-
-    if (loading) return React.createElement("div", {style:{padding:50, textAlign:'center'}}, "Iniciando sistema...");
-
-    return React.createElement("div", {className:"app"},
-        React.createElement("header", {className:"header"},
-            React.createElement("div", null,
-                React.createElement("h1", null, "Glicemia"),
-                React.createElement("p", {style:{fontSize:12, color:'#e8c4a0'}}, activeProfile?.nome)
-            ),
-            React.createElement("button", { 
-                onClick: () => setShowSwitcher(true),
-                style:{background:'rgba(232,196,160,0.1)', border:'none', color:'#e8c4a0', padding:'8px 15px', borderRadius:10, fontSize:12}
-            }, "PERFIS")
-        ),
-
-        tab === "Dashboard" && React.createElement("div", null,
-            React.createElement("div", {className:"card", style:{display:'flex', gap:10}},
-                React.createElement("div", {className:"stat-pill"},
-                    React.createElement("div", {className:"val"}, activeProfile?.logs[0]?.jejum || "—"),
-                    React.createElement("div", {className:"label"}, "Jejum")
-                ),
-                React.createElement("div", {className:"stat-pill"},
-                    React.createElement("div", {className:"val"}, activeProfile?.logs[0]?.pos_cafe || "—"),
-                    React.createElement("div", {className:"label"}, "Pós-Café")
-                )
-            ),
-            React.createElement("div", {className:"card"},
-                React.createElement("h3", {style:{fontSize:13, color:'#7c7a76', marginBottom:15}}, "HISTÓRICO RECENTE"),
-                activeProfile?.logs?.slice(0,5).map((l,i) => 
-                    React.createElement("div", {key:i, style:{display:'flex', justifyContent:'space-between', padding:'12px 0', borderBottom:'1px solid rgba(255,255,255,0.05)'}},
-                        React.createElement("span", null, l.data),
-                        React.createElement("span", {style:{fontWeight:600, color:'#e8c4a0'}}, `${l.jejum} mg/dL`)
-                    )
-                )
-            )
-        ),
-
-        tab === "Registrar" && React.createElement("div", {className:"card"},
-            React.createElement("div", {className:"field"}, 
-                React.createElement("label", null, "Glicemia em Jejum"),
-                React.createElement("input", {id:"inj", type:"number", placeholder: "000"})
-            ),
-            React.createElement("div", {className:"field", style:{marginTop:15}}, 
-                React.createElement("label", null, "Glicemia Pós-Café"),
-                React.createElement("input", {id:"inp", type:"number", placeholder: "000"})
-            ),
-            React.createElement("button", {className:"btn-primary", onClick: saveEntry}, "Salvar no GitHub")
-        ),
-
-        tab === "Admin" && React.createElement("div", {className:"card"},
-            React.createElement("h2", {style:{fontFamily:'DM Serif Display', marginBottom:20}}, "Gestão de Perfis"),
-            data?.profiles.map(p => 
-                React.createElement("div", {key:p.id, className:"profile-item"}, 
-                    React.createElement("span", null, p.nome),
-                    p.isAdmin && React.createElement("span", {style:{fontSize:10, opacity:0.5}}, "ADMIN")
-                )
-            ),
-            React.createElement("button", {className:"btn-primary", onClick: addProfile}, "+ Novo Perfil")
-        ),
-
-        showSwitcher && React.createElement("div", {className:"overlay"},
-            React.createElement("h2", {style:{fontFamily:'DM Serif Display', fontSize:32, marginBottom:40}}, "Selecionar Perfil"),
-            data?.profiles.map(p => 
-                React.createElement("div", {
-                    key:p.id, 
-                    className:"profile-item",
-                    onClick: () => { setActiveProfile(p); setShowSwitcher(false); }
-                }, p.nome)
-            ),
-            React.createElement("button", {onClick:()=>setShowSwitcher(false), style:{marginTop:'auto', color:'#7c7a76', background:'none', border:'none', padding:20}}, "Fechar")
-        ),
-
-        React.createElement("nav", {className:"tabs"},
-            React.createElement("button", {className:`tab-btn ${tab==='Dashboard'?'active':''}`, onClick:()=>setTab("Dashboard")}, "HOME"),
-            React.createElement("button", {className:`tab-btn ${tab==='Registrar'?'active':''}`, onClick:()=>setTab("Registrar")}, "ADICIONAR"),
-            activeProfile?.isAdmin && React.createElement("button", {className:`tab-btn ${tab==='Admin'?'active':''}`, onClick:()=>setTab("Admin")}, "ADMIN")
-        )
-    );
+function LineChart({data}){
+  const[tip,setTip]=useState(null);
+  if(!data||data.length<2)return null;
+  const W=320,H=150,pL=36,pR=10,pT=16,pB=26;
+  const cw=W-pL-pR,ch=H-pT-pB;
+  const all=data.flatMap(d=>[d.j,d.p].filter(v=>v!=null));
+  const minV=Math.min(...all,60),maxV=Math.max(...all,160);
+  const rng=maxV-minV||1;
+  const px=i=>pL+i*(cw/(data.length-1));
+  const py=v=>pT+ch-(((v-minV)/rng)*ch);
+  const lineD=key=>data.map((d,i)=>{const v=d[key];if(v==null)return null;return`${i===0||data[i-1][key]==null?"M":"L"}${px(i).toFixed(1)},${py(v).toFixed(1)}`}).filter(Boolean).join(" ");
+  const grids=Array.from({length:4},(_,i)=>Math.round(minV+(rng/3)*i));
+  const refs=[{v:100,c:"#fbbf24"},{v:140,c:"#f87171"}].filter(r=>r.v>=minV&&r.v<=maxV);
+  return React.createElement("div",{className:"chart-container"},
+    React.createElement("svg",{viewBox:`0 0 ${W} ${H}`,className:"chart-svg",onMouseLeave:()=>setTip(null),onTouchEnd:()=>setTimeout(()=>setTip(null),2000)},
+      grids.map(v=>React.createElement("g",{key:v},React.createElement("line",{x1:pL,x2:W-pR,y1:py(v),y2:py(v),stroke:"rgba(255,255,255,0.05)",strokeWidth:1}),React.createElement("text",{x:pL-4,y:py(v)+4,textAnchor:"end",fontSize:9,fill:"#7c7a76"},v))),
+      refs.map(r=>React.createElement("line",{key:r.v,x1:pL,x2:W-pR,y1:py(r.v),y2:py(r.v),stroke:r.c,strokeWidth:1,strokeDasharray:"4 3"})),
+      data.map((d,i)=>(i===0||i===data.length-1||i===Math.floor(data.length/2))&&React.createElement("text",{key:i,x:px(i),y:H-4,textAnchor:"middle",fontSize:9,fill:"#7c7a76"},d.label)),
+      React.createElement("path",{d:lineD("j"),fill:"none",stroke:"#e8c4a0",strokeWidth:2,strokeLinecap:"round",strokeLinejoin:"round"}),
+      React.createElement("path",{d:lineD("p"),fill:"none",stroke:"#c084fc",strokeWidth:2,strokeLinecap:"round",strokeLinejoin:"round"}),
+      data.map((d,i)=>React.createElement(React.Fragment,{key:i},
+        d.j!=null&&React.createElement("circle",{cx:px(i),cy:py(d.j),r:3,fill:"#e8c4a0",onMouseEnter:()=>setTip({x:px(i),y:py(d.j),d}),onTouchStart:()=>setTip({x:px(i),y:py(d.j),d})}),
+        d.p!=null&&React.createElement("circle",{cx:px(i),cy:py(d.p),r:3,fill:"#c084fc",onMouseEnter:()=>setTip({x:px(i),y:py(d.p),d}),onTouchStart:()=>setTip({x:px(i),y:py(d.p),d})})
+      )),
+      React.createElement("circle",{cx:pL+4,cy:pT+5,r:3,fill:"#e8c4a0"}),React.createElement("text",{x:pL+10,y:pT+9,fontSize:8,fill:"#e8c4a0"},"Jejum"),
+      React.createElement("circle",{cx:pL+44,cy:pT+5,r:3,fill:"#c084fc"}),React.createElement("text",{x:pL+50,y:pT+9,fontSize:8,fill:"#c084fc"},"Pós-café"),
+      React.createElement("line",{x1:W-76,x2:W-66,y1:pT+5,y2:pT+5,stroke:"#fbbf24",strokeWidth:1.5,strokeDasharray:"3 2"}),React.createElement("text",{x:W-62,y:pT+9,fontSize:8,fill:"#fbbf24"},"100"),
+      React.createElement("line",{x1:W-42,x2:W-32,y1:pT+5,y2:pT+5,stroke:"#f87171",strokeWidth:1.5,strokeDasharray:"3 2"}),React.createElement("text",{x:W-28,y:pT+9,fontSize:8,fill:"#f87171"},"140")
+    ),
+    tip&&React.createElement("div",{className:"chart-tooltip",style:{left:Math.min(tip.x+8,220),top:tip.y-44}},
+      React.createElement("div",{style:{color:"#7c7a76",marginBottom:3}},tip.d.label),
+      tip.d.j!=null&&React.createElement("div",{style:{color:"#e8c4a0"}},`Jejum: ${tip.d.j} mg/dL`),
+      tip.d.p!=null&&React.createElement("div",{style:{color:"#c084fc"}},`Pós: ${tip.d.p} mg/dL`)
+    )
+  );
 }
 
+function requestNotifPermission(cb){
+  if(!("Notification" in window)){cb(false);return;}
+  if(Notification.permission==="granted"){cb(true);return;}
+  Notification.requestPermission().then(p=>cb(p==="granted"));
+}
+function fireNotif(title,body){
+  if(Notification.permission==="granted"){
+    try{new Notification(title,{body,icon:"data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='28' font-size='28'>🩸</text></svg>"})}catch(e){}
+  }
+}
+function useAlarmTick(logs,meds){
+  useEffect(()=>{
+    if(!LS.get("alarms-enabled")||!meds||!meds.length)return;
+    const tick=()=>{
+      const now=new Date();
+      const hm=`${String(now.getHours()).padStart(2,"0")}:${String(now.getMinutes()).padStart(2,"0")}`;
+      const todayLog=logs.find(l=>l.data===todayStr());
+      meds.forEach(med=>{if(med.alarm===hm){const taken=todayLog?.meds?.[med.id];if(!taken)fireNotif(`💊 Hora do ${med.name}`,`${med.label} — ${med.dose}`);}});
+    };
+    const id=setInterval(tick,60000);return()=>clearInterval(id);
+  },[logs,meds]);
+}
+
+function hexToRgb(hex){return[parseInt(hex.slice(1,3),16),parseInt(hex.slice(3,5),16),parseInt(hex.slice(5,7),16)]}
+function exportPDF(profile,logs,avgJ,avgP){
+  const meds=profile.meds||[];
+  const {jsPDF}=window.jspdf;
+  const doc=new jsPDF({orientation:"portrait",unit:"mm",format:"a4"});
+  const W=210,mar=18,cw=W-mar*2;let y=mar;
+  const checkY=(n=10)=>{if(y+n>280){doc.addPage();y=mar;}};
+  doc.setFillColor(26,31,46);doc.rect(0,0,210,38,"F");
+  doc.setTextColor(232,196,160);doc.setFontSize(18);doc.setFont("helvetica","bold");
+  doc.text("Relatório de Monitoramento Glicêmico",mar,15);
+  doc.setFontSize(9);doc.setFont("helvetica","normal");doc.setTextColor(150,148,144);
+  doc.text(`Gerado em: ${new Date().toLocaleDateString("pt-BR")} às ${new Date().toLocaleTimeString("pt-BR")}`,mar,23);
+  if(profile.nome)doc.text(`Paciente: ${profile.nome}`,mar,30);
+  y=46;
+  const half=(cw-4)/2;
+  const drawCard=(title,lines,x,w)=>{
+    const h=10+lines.length*6+4;
+    doc.setFillColor(26,31,46);doc.roundedRect(x,y,w,h,3,3,"F");
+    doc.setFontSize(7);doc.setFont("helvetica","bold");doc.setTextColor(124,122,118);doc.text(title.toUpperCase(),x+4,y+5);
+    doc.setFontSize(9);doc.setFont("helvetica","normal");doc.setTextColor(232,228,223);
+    lines.forEach((l,i)=>doc.text(l,x+4,y+11+i*6));return h;
+  };
+  const pLines=[profile.nome||"—",profile.dataNasc?`Nasc.: ${fmt(profile.dataNasc)}`:"",profile.remedios?`Med.: ${profile.remedios.slice(0,44)}${profile.remedios.length>44?"...":""}`:""  ].filter(Boolean);
+  const mLines=[profile.medico||"—",profile.crm||"",profile.telefone_medico||""].filter(Boolean);
+  const h1=drawCard("Paciente",pLines,mar,half);drawCard("Médico",mLines,mar+half+4,half);
+  y+=Math.max(h1,10+mLines.length*6+4)+6;
+  checkY(24);
+  doc.setFillColor(26,31,46);doc.roundedRect(mar,y,cw,20,3,3,"F");
+  doc.setFontSize(7);doc.setFont("helvetica","bold");doc.setTextColor(124,122,118);doc.text("MÉDIAS — ÚLTIMOS 7 REGISTROS",mar+4,y+5);
+  [{l:"Jejum",v:avgJ+" mg/dL",c:[232,196,160]},{l:"Pós-prandial",v:avgP+" mg/dL",c:[192,132,252]},{l:"Registros",v:String(logs.length),c:[96,165,250]}]
+    .forEach((item,i)=>{const x=mar+i*(cw/3);doc.setFontSize(13);doc.setFont("helvetica","bold");doc.setTextColor(...item.c);doc.text(item.v,x+4,y+14);doc.setFontSize(8);doc.setFont("helvetica","normal");doc.setTextColor(150,148,144);doc.text(item.l,x+4,y+19);});
+  y+=26;
+  checkY(20);
+  doc.setFontSize(7);doc.setFont("helvetica","bold");doc.setTextColor(124,122,118);doc.text("HISTÓRICO DE LEITURAS",mar,y);y+=5;
+  doc.setFillColor(30,36,52);doc.rect(mar,y,cw,7,"F");
+  doc.setFontSize(8);doc.setFont("helvetica","bold");doc.setTextColor(180,178,174);
+  const cols=[mar+2,mar+24,mar+58,mar+92,mar+118,mar+142];
+  ["Data","Jejum","Pós-café","Peso","Remédios","Reações"].forEach((h,i)=>doc.text(h,cols[i],y+5));y+=9;
+  logs.forEach((r,idx)=>{
+    const rxText=[...(r.rxChips||[]),(r.rxObs||"")].filter(Boolean).join(", ");
+    const medsText=meds.filter(m=>r.meds?.[m.id]).map(m=>m.name.slice(0,6)).join(" ");
+    const rxLines=doc.splitTextToSize(rxText||"—",52);
+    const rh=Math.max(7,rxLines.length*4.5+3);
+    checkY(rh);
+    if(idx%2===0){doc.setFillColor(22,27,40);doc.rect(mar,y-1,cw,rh,"F")}
+    const js=glicStatus(r.jejum,"jejum"),ps=glicStatus(r.pos_cafe,"pos");
+    doc.setFontSize(8);doc.setFont("helvetica","normal");doc.setTextColor(200,198,194);doc.text(fmt(r.data),cols[0],y+4);
+    if(r.jejum){doc.setTextColor(...hexToRgb(SC[js]));doc.text(`${r.jejum}`,cols[1],y+4);}else{doc.setTextColor(80,78,74);doc.text("—",cols[1],y+4)}
+    if(r.pos_cafe){doc.setTextColor(...hexToRgb(SC[ps]));doc.text(`${r.pos_cafe}`,cols[2],y+4);}else{doc.setTextColor(80,78,74);doc.text("—",cols[2],y+4)}
+    doc.setTextColor(96,165,250);doc.text(r.peso?`${r.peso}kg`:"—",cols[3],y+4);
+    doc.setTextColor(74,222,128);doc.text(medsText||"—",cols[4],y+4);
+    doc.setTextColor(192,132,252);doc.text(rxLines,cols[5],y+4);
+    y+=rh;
+  });
+  doc.setFontSize(7);doc.setTextColor(80,78,74);doc.text("Gerado pelo app de monitoramento glicêmico. Não substitui avaliação médica.",mar,288);
+  doc.save(`relatorio-glicemia-${todayStr()}.pdf`);
+}
+function openPrintReport(profile,logs,avgJ,avgP){
+  const meds=profile.meds||[];
+  const rows=logs.map(r=>{
+    const js=glicStatus(r.jejum,"jejum"),ps=glicStatus(r.pos_cafe,"pos");
+    const jc={ok:"#16a34a",warn:"#d97706",high:"#dc2626",low:"#2563eb"}[js]||"#666";
+    const pc={ok:"#16a34a",warn:"#d97706",high:"#dc2626",low:"#2563eb"}[ps]||"#666";
+    const medsHTML=meds.map(m=>`<span style="display:inline-block;padding:2px 7px;border-radius:100px;font-size:10px;margin:1px;background:${r.meds?.[m.id]?"#dcfce7":"#f1f5f9"};color:${r.meds?.[m.id]?"#16a34a":"#94a3b8"}">${r.meds?.[m.id]?"✓":""} ${m.name}</span>`).join("")||"—";
+    const rx=[...(r.rxChips||[]),(r.rxObs||"")].filter(Boolean).join(", ")||"—";
+    return`<tr><td>${fmt(r.data)}</td><td style="color:${jc};font-weight:600">${r.jejum?r.jejum+" mg/dL":"—"}</td><td style="color:${pc};font-weight:600">${r.pos_cafe?r.pos_cafe+" mg/dL":"—"}</td><td>${r.peso?r.peso+" kg":"—"}</td><td>${medsHTML}</td><td style="color:#7c3aed;font-size:12px">${rx}</td></tr>`;
+  }).join("");
+  const html=`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Relatório Glicêmico — ${profile.nome||"Paciente"}</title><link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet"><style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:'DM Sans',sans-serif;color:#1a1a1a;background:#fff}.page{max-width:900px;margin:0 auto;padding:32px 28px}.header{background:linear-gradient(135deg,#1a1f2e,#2d3550);color:#e8c4a0;padding:24px 28px;border-radius:12px;margin-bottom:24px}.header h1{font-family:'DM Serif Display',serif;font-size:24px;font-style:italic;margin-bottom:6px}.header .meta{font-size:12px;color:#9ca3af;line-height:1.7}.two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px}.info-card{background:#f8f7f4;border:1px solid #e5e3df;border-radius:10px;padding:16px}.info-card h3{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#9c9a96;margin-bottom:8px;font-weight:600}.info-card p{font-size:13px;color:#333;line-height:1.8}.stats-row{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px}.stat-card{background:#f8f7f4;border:1px solid #e5e3df;border-radius:10px;padding:14px;text-align:center}.stat-card .sv{font-size:22px;font-weight:700}.stat-card .sl{font-size:11px;color:#9c9a96;margin-top:4px}section{margin-bottom:24px}section h2{font-family:'DM Serif Display',serif;font-size:18px;color:#1a1f2e;margin-bottom:12px;padding-bottom:6px;border-bottom:2px solid #e8c4a0}table{width:100%;border-collapse:collapse;font-size:12px}th{background:#1a1f2e;color:#e8c4a0;padding:8px 10px;text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.5px;font-weight:600}td{padding:8px 10px;border-bottom:1px solid #f0eeeb;vertical-align:top}tr:nth-child(even) td{background:#faf9f7}.ref-box{background:#fffbf0;border:1px solid #fde68a;border-radius:8px;padding:12px 14px;font-size:12px;color:#92400e;margin-bottom:20px;line-height:1.6}.footer{margin-top:28px;padding-top:16px;border-top:1px solid #e5e3df;font-size:11px;color:#aaa;text-align:center}.no-print{margin-bottom:20px;background:#1a1f2e;padding:12px 16px;border-radius:8px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}@media print{.no-print{display:none!important}.header{-webkit-print-color-adjust:exact;print-color-adjust:exact}th{-webkit-print-color-adjust:exact;print-color-adjust:exact}}</style></head><body><div class="page"><div class="no-print"><span style="color:#e8c4a0;font-size:13px;font-weight:600;flex:1">📋 Relatório pronto</span><button onclick="window.print()" style="background:#e8c4a0;color:#0f1117;border:none;border-radius:8px;padding:9px 18px;font-size:13px;font-weight:700;cursor:pointer">Imprimir / Salvar PDF</button><button onclick="window.close()" style="background:rgba(255,255,255,0.1);color:#e8e4df;border:1px solid rgba(255,255,255,0.2);border-radius:8px;padding:9px 14px;font-size:13px;cursor:pointer">Fechar</button></div><div class="header"><h1>Relatório de Monitoramento Glicêmico</h1><div class="meta">Gerado em: ${new Date().toLocaleDateString("pt-BR")} às ${new Date().toLocaleTimeString("pt-BR")}<br>Período: ${logs.length?fmt(logs[logs.length-1].data)+" a "+fmt(logs[0].data):"sem registros"}</div></div><div class="two-col"><div class="info-card"><h3>Paciente</h3><p><strong>${profile.nome||"—"}</strong><br>${profile.dataNasc?"Nasc.: "+fmt(profile.dataNasc)+"<br>":""}${profile.peso_inicial?"Peso inicial: "+profile.peso_inicial+" kg<br>":""}${profile.remedios?"Medicações: "+profile.remedios:""}</p></div><div class="info-card"><h3>Médico responsável</h3><p><strong>${profile.medico||"—"}</strong><br>${profile.crm?profile.crm+"<br>":""}${profile.telefone_medico||""}</p></div></div><div class="stats-row"><div class="stat-card"><div class="sv" style="color:#b45309">${avgJ} <span style="font-size:13px">mg/dL</span></div><div class="sl">Média Jejum (7 dias)</div></div><div class="stat-card"><div class="sv" style="color:#7c3aed">${avgP} <span style="font-size:13px">mg/dL</span></div><div class="sl">Média Pós-prandial (7 dias)</div></div><div class="stat-card"><div class="sv" style="color:#1a1f2e">${logs.length}</div><div class="sl">Dias registrados</div></div></div><div class="ref-box"><strong>Valores de referência:</strong> Jejum normal: 70–99 mg/dL · Pós-prandial (2h): &lt;140 mg/dL · Pré-diabetes (jejum): 100–125 mg/dL</div>${logs.length?`<section><h2>Histórico completo</h2><table><thead><tr><th>Data</th><th>Jejum</th><th>Pós-café</th><th>Peso</th><th>Remédios</th><th>Reações</th></tr></thead><tbody>${rows}</tbody></table></section>`:""}<div class="footer">Gerado pelo app de Monitoramento Glicêmico · ${new Date().getFullYear()} · Não substitui avaliação médica.</div></div></body></html>`;
+  const w=window.open("","_blank");if(w){w.document.write(html);w.document.close();}else alert("Permita pop-ups.");
+}
+
+function Pill({val,unit,lbl,color,badge}){
+  return React.createElement("div",{className:"stat-pill"},React.createElement("div",{className:"val",style:{color:color||"#e8e4df"}},val),React.createElement("div",{className:"unit"},unit),React.createElement("div",{className:"lbl"},lbl),badge&&React.createElement("div",{style:{marginTop:6}},React.createElement("span",{className:"badge",style:{background:badge.c+"22",color:badge.c}},badge.l)));
+}
+function Setup({onSave}){
+  const[token,setToken]=useState("");const[id,setId]=useState("");const[busy,setBusy]=useState(false);const[err,setErr]=useState("");
+  const go=async()=>{if(!token.trim()||!id.trim()){setErr("Preencha os dois campos.");return}setBusy(true);setErr("");try{await gistLoad(token.trim(),id.trim());onSave(token.trim(),id.trim())}catch(e){setErr("Não conectou: "+e.message)}finally{setBusy(false)}};
+  return React.createElement("div",{className:"setup-wrap"},React.createElement("div",{className:"setup-card"},React.createElement("h2",null,"Configurar sincronização"),React.createElement("p",null,"Dados salvos num Gist privado no GitHub. Configure uma vez só."),React.createElement("div",{className:"step"},React.createElement("div",{className:"step-num"},"1"),React.createElement("div",null,"Acesse ",React.createElement("a",{href:"https://github.com/settings/tokens/new",target:"_blank"},"github.com/settings/tokens/new")," · Note: ",React.createElement("strong",null,'"glicemia"')," · Marque apenas ",React.createElement("strong",null,"gist")," · Gerar → Copiar")),React.createElement("div",{className:"step"},React.createElement("div",{className:"step-num"},"2"),React.createElement("div",null,"Acesse ",React.createElement("a",{href:"https://gist.github.com",target:"_blank"},"gist.github.com")," · Criar Gist Secret · Copiar ID da URL")),React.createElement("div",{className:"divider"}),React.createElement("div",{className:"field"},React.createElement("label",null,"Personal Access Token"),React.createElement("input",{type:"password",placeholder:"ghp_...",value:token,onChange:e=>setToken(e.target.value),autoComplete:"off",autoCorrect:"off",autoCapitalize:"off",spellCheck:"false"})),React.createElement("div",{className:"field"},React.createElement("label",null,"Gist ID"),React.createElement("input",{placeholder:"a1b2c3d4...",value:id,onChange:e=>setId(e.target.value),autoComplete:"off",autoCorrect:"off",autoCapitalize:"off",spellCheck:"false"})),err&&React.createElement("div",{className:"warn-box"},err),React.createElement("button",{className:"btn-primary",onClick:go,disabled:busy},busy?"Testando...":"Conectar")),React.createElement("div",{className:"info-box"},"Token salvo só neste dispositivo. Nenhum dado vai para terceiros."));
+}
+function TabDashboard({logs,avgJ,avgP,onExport,meds}){
+  const last=logs[0];
+  const js=last?.jejum?glicStatus(last.jejum,"jejum"):null;
+  const ps=last?.pos_cafe?glicStatus(last.pos_cafe,"pos"):null;
+  const chartData=logs.slice(0,14).reverse().map(r=>({label:fmt(r.data).slice(0,5),j:r.jejum?Number(r.jejum):null,p:r.pos_cafe?Number(r.pos_cafe):null}));
+  const todayLog=logs.find(l=>l.data===todayStr());
+  const takenCount=meds.filter(m=>todayLog?.meds?.[m.id]).length;
+  return React.createElement(React.Fragment,null,
+    React.createElement("p",{className:"section-title"},"Visão geral"),
+    meds.length>0&&React.createElement("div",{className:"card"},React.createElement("p",{className:"card-title"},"Remédios hoje"),React.createElement("div",{style:{display:"flex",alignItems:"center",gap:12}},React.createElement("div",{style:{fontSize:28,fontWeight:700,color:takenCount===meds.length?"#4ade80":"#e8c4a0"}},`${takenCount}/${meds.length}`),React.createElement("div",null,React.createElement("div",{style:{fontSize:13,color:"#e8e4df",fontWeight:500}},takenCount===meds.length?"Todos tomados ✓":"Pendentes"),React.createElement("div",{style:{fontSize:11,color:"#7c7a76",marginTop:2}},meds.filter(m=>!todayLog?.meds?.[m.id]).map(m=>m.alarm).join(" · ")||"Tudo certo!")))),
+    last&&React.createElement("div",{className:"card"},React.createElement("p",{className:"card-title"},`Último registro — ${fmt(last.data)}`),React.createElement("div",{className:"stat-row"},last.jejum&&React.createElement(Pill,{val:last.jejum,unit:"mg/dL",lbl:"Jejum",color:SC[js],badge:{c:SC[js],l:SL[js]}}),last.pos_cafe&&React.createElement(Pill,{val:last.pos_cafe,unit:"mg/dL",lbl:"Pós-café",color:SC[ps],badge:{c:SC[ps],l:SL[ps]}}),last.peso&&React.createElement(Pill,{val:last.peso,unit:"kg",lbl:"Peso",color:"#60a5fa"}))),
+    logs.length>=2&&React.createElement("div",{className:"card"},React.createElement("p",{className:"card-title"},"Média — últimos 7 dias"),React.createElement("div",{className:"stat-row"},React.createElement(Pill,{val:avgJ,unit:"mg/dL",lbl:"Jejum",color:"#e8c4a0"}),React.createElement(Pill,{val:avgP,unit:"mg/dL",lbl:"Pós-café",color:"#c084fc"}),React.createElement(Pill,{val:logs.length,unit:"dias",lbl:"Registros",color:"#5c5a56"}))),
+    chartData.length>=2&&React.createElement("div",{className:"card"},React.createElement("p",{className:"card-title"},"Tendência — últimos 14 dias"),React.createElement(LineChart,{data:chartData})),
+    logs.length===0&&React.createElement("div",{className:"empty"},React.createElement("div",{className:"icon"},"📊"),React.createElement("p",null,"Nenhum dado ainda. Vá em ",React.createElement("strong",null,"Registrar"),".")),
+    logs.length>0&&React.createElement(React.Fragment,null,React.createElement("p",{className:"card-title",style:{marginTop:8,marginBottom:10}},"EXPORTAR RELATÓRIO"),React.createElement("div",{className:"export-grid"},React.createElement("div",{className:"export-btn pdf-btn",onClick:()=>onExport("pdf")},React.createElement("div",{className:"eb-icon"},"📄"),React.createElement("div",{className:"eb-title"},"Baixar PDF"),React.createElement("div",{className:"eb-sub"},"Salvar ou enviar por WhatsApp")),React.createElement("div",{className:"export-btn html-btn",onClick:()=>onExport("html")},React.createElement("div",{className:"eb-icon"},"🖨️"),React.createElement("div",{className:"eb-title"},"Visualizar / Imprimir"),React.createElement("div",{className:"eb-sub"},"Abre para imprimir ou salvar PDF"))))
+  );
+}
+function TabRegistrar({logs,setLogs,sync,profile,saving,showToast,editLog,clearEdit,meds}){
+  const blank=()=>({data:todayStr(),jejum:"",pos_cafe:"",peso:"",obs:"",meds:{},rxChips:[],rxObs:""});
+  const[form,setForm]=useState(()=>editLog||logs.find(l=>l.data===todayStr())||blank());
+  const[notifAsked,setNotifAsked]=useState(!!LS.get("alarms-enabled"));
+  const isEditing=!!(editLog&&editLog.data!==todayStr());
+  useEffect(()=>{if(editLog)setForm(editLog);},[editLog]);
+  useEffect(()=>{if(editLog)return;const e=logs.find(l=>l.data===todayStr());if(e)setForm(e);},[logs,editLog]);
+  const f=k=>e=>setForm(p=>({...p,[k]:e.target.value}));
+  const toggleMed=id=>setForm(p=>({...p,meds:{...p.meds,[id]:!p.meds?.[id]}}));
+  const toggleChip=c=>setForm(p=>({...p,rxChips:p.rxChips?.includes(c)?p.rxChips.filter(x=>x!==c):[...(p.rxChips||[]),c]}));
+  const save=async()=>{
+    if(!form.jejum&&!form.pos_cafe&&!form.peso&&!Object.values(form.meds||{}).some(Boolean))return;
+    const entry={...form,id:form.id||Date.now()};
+    const upd=[entry,...logs.filter(l=>l.data!==form.data)].sort((a,b)=>b.data.localeCompare(a.data));
+    setLogs(upd);showToast(isEditing?"✓ Registro atualizado!":"✓ Registro salvo!");
+    if(clearEdit)clearEdit();await sync(upd);
+  };
+  const enableNotifs=()=>{requestNotifPermission(granted=>{if(granted){LS.set("alarms-enabled",true);setNotifAsked(true);showToast("✓ Alertas ativados!");}else showToast("Permissão negada","error");});};
+  const js=glicStatus(form.jejum,"jejum"),ps=glicStatus(form.pos_cafe,"pos");
+  return React.createElement(React.Fragment,null,
+    React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}},React.createElement("p",{className:"section-title",style:{marginBottom:0}},isEditing?`Editando — ${fmt(form.data)}`:"Registro de hoje"),isEditing&&React.createElement("button",{onClick:()=>{if(clearEdit)clearEdit();setForm(logs.find(l=>l.data===todayStr())||blank());},style:{background:"rgba(255,255,255,0.07)",border:"1px solid rgba(255,255,255,0.1)",borderRadius:8,padding:"6px 12px",fontSize:12,color:"#9c9a96",cursor:"pointer",fontFamily:"'DM Sans',sans-serif"}},"✕ Cancelar")),
+    !notifAsked&&React.createElement("div",{className:"alarm-banner"},React.createElement("div",{className:"icon"},"🔔"),React.createElement("div",{className:"text"},React.createElement("div",{className:"title"},"Ativar alertas de remédios"),React.createElement("div",{className:"sub"},"Notificações nos horários certos")),React.createElement("button",{onClick:enableNotifs,style:{background:"#fbbf24",color:"#0f1117",border:"none",borderRadius:8,padding:"8px 14px",fontSize:12,fontWeight:700,cursor:"pointer",flexShrink:0,fontFamily:"'DM Sans',sans-serif"}},"Ativar")),
+    React.createElement("div",{className:"card"},React.createElement("p",{className:"card-title"},"Data"),React.createElement("div",{className:"field"},React.createElement("input",{type:"date",value:form.data,onChange:f("data")}))),
+    meds.length>0&&React.createElement("div",{className:"card"},React.createElement("p",{className:"card-title"},"Remédios tomados"),meds.map(med=>React.createElement("div",{key:med.id,className:"med-item"+(form.meds?.[med.id]?" taken":""),onClick:()=>toggleMed(med.id)},React.createElement("div",{className:"med-check"},form.meds?.[med.id]&&"✓"),React.createElement("div",{className:"med-info"},React.createElement("div",{className:"med-name"},med.name," ",React.createElement("span",{style:{fontSize:11,fontWeight:400,color:form.meds?.[med.id]?"#4ade8099":"#5c5a56"}},med.dose)),React.createElement("div",{className:"med-time"},med.label)),React.createElement("div",{style:{fontSize:12,color:form.meds?.[med.id]?"#4ade80":"#5c5a56",flexShrink:0}},med.alarm)))),
+    React.createElement("div",{className:"card"},React.createElement("p",{className:"card-title"},"Glicemia"),React.createElement("div",{className:"row-2"},React.createElement("div",{className:"field"},React.createElement("label",null,"Jejum (ao acordar)"),React.createElement("input",{type:"number",placeholder:"95",value:form.jejum,onChange:f("jejum"),inputMode:"numeric"}),js&&React.createElement("p",{style:{fontSize:11,marginTop:4,color:SC[js]}},SL[js])),React.createElement("div",{className:"field"},React.createElement("label",null,"Pós-café (2h depois)"),React.createElement("input",{type:"number",placeholder:"130",value:form.pos_cafe,onChange:f("pos_cafe"),inputMode:"numeric"}),ps&&React.createElement("p",{style:{fontSize:11,marginTop:4,color:SC[ps]}},SL[ps])))),
+    React.createElement("div",{className:"card"},React.createElement("p",{className:"card-title"},"Peso"),React.createElement("div",{className:"field"},React.createElement("label",null,"Peso (kg)"),React.createElement("input",{type:"number",placeholder:"72.5",value:form.peso,onChange:f("peso"),inputMode:"decimal",step:"0.1"}))),
+    React.createElement("div",{className:"card"},React.createElement("p",{className:"card-title"},"Reações / sintomas"),React.createElement("div",{className:"chip-grid"},REACTION_CHIPS.map(c=>React.createElement("button",{key:c,className:"chip"+(form.rxChips?.includes(c)?" selected":""),onClick:()=>toggleChip(c)},c))),React.createElement("div",{className:"field"},React.createElement("label",null,"Observações adicionais"),React.createElement("textarea",{placeholder:"ex: dor de cabeça forte por volta das 10h...",value:form.rxObs||"",onChange:f("rxObs")}))),
+    React.createElement("div",{className:"card"},React.createElement("p",{className:"card-title"},"Notas do dia"),React.createElement("div",{className:"field"},React.createElement("textarea",{placeholder:"ex: dormiu mal, comeu fora...",value:form.obs,onChange:f("obs")}))),
+    React.createElement("button",{className:"btn-primary",onClick:save,disabled:saving},saving?"Salvando...":(isEditing?"Atualizar registro":"Salvar registro do dia"))
+  );
+}
+function TabHistorico({logs,setLogs,sync,onEdit,meds}){
+  if(!logs.length)return React.createElement("div",{className:"empty"},React.createElement("div",{className:"icon"},"📋"),React.createElement("p",null,"Nenhum registro ainda."));
+  const del=async id=>{const upd=logs.filter(r=>r.id!==id);setLogs(upd);await sync(upd);};
+  return React.createElement(React.Fragment,null,React.createElement("p",{className:"section-title"},"Histórico"),
+    logs.map(r=>{
+      const js=glicStatus(r.jejum,"jejum"),ps=glicStatus(r.pos_cafe,"pos");
+      const takenMeds=meds.filter(m=>r.meds?.[m.id]);
+      const rxAll=[...(r.rxChips||[]),(r.rxObs||"")].filter(Boolean);
+      return React.createElement("div",{className:"list-item",key:r.id},
+        React.createElement("button",{className:"del-btn",onClick:()=>del(r.id)},"✕"),
+        React.createElement("button",{className:"edit-btn",onClick:()=>onEdit(r),style:{marginRight:4}},"✏️ editar"),
+        React.createElement("div",{className:"date"},fmt(r.data)),
+        React.createElement("div",{className:"values"},r.jejum&&React.createElement("div",{className:"val-item"},React.createElement("span",{style:{color:SC[js]}},r.jejum),React.createElement("span",{style:{fontSize:11,color:"#7c7a76"}}," mg/dL jej")),r.pos_cafe&&React.createElement("div",{className:"val-item"},React.createElement("span",{style:{color:SC[ps]}},r.pos_cafe),React.createElement("span",{style:{fontSize:11,color:"#7c7a76"}}," mg/dL pós")),r.peso&&React.createElement("div",{className:"val-item"},React.createElement("span",{style:{color:"#60a5fa"}},r.peso),React.createElement("span",{style:{fontSize:11,color:"#7c7a76"}}," kg"))),
+        takenMeds.length>0&&React.createElement("div",{style:{marginTop:8,display:"flex",flexWrap:"wrap",gap:4}},takenMeds.map(m=>React.createElement("span",{key:m.id,style:{fontSize:11,background:"rgba(74,222,128,0.1)",color:"#4ade80",border:"1px solid rgba(74,222,128,0.2)",borderRadius:100,padding:"2px 8px"}},`✓ ${m.name} ${m.time}`))),
+        rxAll.length>0&&React.createElement("div",{style:{marginTop:6},className:"chip-grid"},rxAll.map((c,i)=>React.createElement("span",{key:i,className:"rx-tag"},c))),
+        r.obs&&React.createElement("p",{style:{fontSize:12,color:"#7c7a76",marginTop:6}},r.obs)
+      );
+    })
+  );
+}
+function TabPerfil({profile,setProfile,save,saving,resetGist,onExport,meds}){
+  const f=k=>e=>setProfile(p=>({...p,[k]:e.target.value}));
+  const isIOS=/iphone|ipad|ipod/i.test(navigator.userAgent);
+  const blankMed=()=>({id:"med_"+Date.now(),name:"",dose:"",label:"",alarm:""});
+  const[newMed,setNewMed]=useState(blankMed());
+  const[editingId,setEditingId]=useState(null);
+  const nm=k=>e=>setNewMed(p=>({...p,[k]:e.target.value}));
+
+  const addMed=()=>{
+    if(!newMed.name.trim()||!newMed.alarm.trim())return;
+    const med={...newMed,id:"med_"+Date.now(),label:newMed.label||newMed.name};
+    setProfile(p=>({...p,meds:[...(p.meds||[]),med]}));
+    setNewMed(blankMed());
+  };
+  const removeMed=id=>setProfile(p=>({...p,meds:(p.meds||[]).filter(m=>m.id!==id)}));
+
+  return React.createElement(React.Fragment,null,
+    React.createElement("p",{className:"section-title"},"Perfil"),
+    isIOS&&React.createElement("div",{className:"install-banner"},React.createElement("div",{className:"icon"},"📲"),React.createElement("div",null,React.createElement("strong",null,"Instalar como app no iPhone"),React.createElement("p",null,'Toque em Compartilhar (⎋) → "Adicionar à Tela de Início"'))),
+
+    // Dados pessoais
+    React.createElement("div",{className:"card"},
+      React.createElement("p",{className:"card-title"},"Paciente"),
+      React.createElement("div",{className:"field"},React.createElement("label",null,"Nome completo"),React.createElement("input",{value:profile.nome,onChange:f("nome"),placeholder:"Nome"})),
+      React.createElement("div",{className:"row-2"},
+        React.createElement("div",{className:"field"},React.createElement("label",null,"Data de nascimento"),React.createElement("input",{type:"date",value:profile.dataNasc,onChange:f("dataNasc")})),
+        React.createElement("div",{className:"field"},React.createElement("label",null,"Peso inicial (kg)"),React.createElement("input",{type:"number",value:profile.peso_inicial,onChange:f("peso_inicial"),step:"0.1",inputMode:"decimal"}))
+      )
+    ),
+
+    // Médico
+    React.createElement("div",{className:"card"},
+      React.createElement("p",{className:"card-title"},"Médico"),
+      React.createElement("div",{className:"field"},React.createElement("label",null,"Nome"),React.createElement("input",{value:profile.medico,onChange:f("medico"),placeholder:"Dr(a)."})),
+      React.createElement("div",{className:"row-2"},
+        React.createElement("div",{className:"field"},React.createElement("label",null,"CRM"),React.createElement("input",{value:profile.crm,onChange:f("crm"),placeholder:"CRM/RS 00000"})),
+        React.createElement("div",{className:"field"},React.createElement("label",null,"Telefone"),React.createElement("input",{value:profile.telefone_medico,onChange:f("telefone_medico"),placeholder:"(51) 9...",type:"tel"}))
+      )
+    ),
+
+    // Gerenciador de remédios
+    React.createElement("div",{className:"card"},
+      React.createElement("p",{className:"card-title"},"Remédios"),
+
+      // Lista dos cadastrados
+      meds.length===0&&React.createElement("p",{style:{fontSize:13,color:"#5c5a56",marginBottom:12}},"Nenhum remédio cadastrado ainda."),
+      meds.map(m=>React.createElement("div",{key:m.id,style:{display:"flex",alignItems:"center",gap:10,padding:"10px 0",borderBottom:"1px solid rgba(255,255,255,0.05)"}},
+        React.createElement("div",{style:{flex:1}},
+          React.createElement("div",{style:{fontSize:14,fontWeight:600,color:"#e8e4df"}},m.name," ",React.createElement("span",{style:{fontSize:11,color:"#7c7a76",fontWeight:400}},m.dose)),
+          React.createElement("div",{style:{fontSize:11,color:"#7c7a76",marginTop:2}},`${m.label||m.name} · ${m.alarm}`)
+        ),
+        React.createElement("button",{onClick:()=>removeMed(m.id),style:{background:"none",border:"none",color:"#f87171",cursor:"pointer",fontSize:18,padding:"4px",flexShrink:0}},"✕")
+      )),
+
+      // Formulário novo remédio
+      React.createElement("div",{style:{marginTop:14,paddingTop:14,borderTop:"1px solid rgba(255,255,255,0.06)"}},
+        React.createElement("p",{style:{fontSize:11,color:"#7c7a76",textTransform:"uppercase",letterSpacing:"1px",fontWeight:600,marginBottom:10}},"Adicionar remédio"),
+        React.createElement("div",{className:"row-2"},
+          React.createElement("div",{className:"field"},React.createElement("label",null,"Nome"),React.createElement("input",{placeholder:"ex: Metformina",value:newMed.name,onChange:nm("name")})),
+          React.createElement("div",{className:"field"},React.createElement("label",null,"Dose"),React.createElement("input",{placeholder:"ex: 500mg",value:newMed.dose,onChange:nm("dose")}))
+        ),
+        React.createElement("div",{className:"row-2"},
+          React.createElement("div",{className:"field"},React.createElement("label",null,"Quando tomar"),React.createElement("input",{placeholder:"ex: Após almoço",value:newMed.label,onChange:nm("label")})),
+          React.createElement("div",{className:"field"},React.createElement("label",null,"Horário do alerta"),React.createElement("input",{type:"time",value:newMed.alarm,onChange:nm("alarm")}))
+        ),
+        React.createElement("button",{onClick:addMed,style:{width:"100%",background:"rgba(232,196,160,0.15)",border:"1px solid rgba(232,196,160,0.3)",borderRadius:10,padding:"11px",fontSize:13,fontWeight:600,color:"#e8c4a0",cursor:"pointer",fontFamily:"'DM Sans',sans-serif"}},"+ Adicionar remédio")
+      )
+    ),
+
+    React.createElement("button",{className:"btn-primary",onClick:save,disabled:saving},saving?"Salvando...":"Salvar perfil"),
+    React.createElement("button",{className:"btn-secondary",onClick:()=>onExport("pdf")},"📄 Baixar relatório PDF"),
+    React.createElement("button",{className:"btn-secondary",onClick:()=>onExport("html")},"🖨️ Visualizar / Imprimir relatório"),
+    React.createElement("div",{className:"divider"}),
+    React.createElement("button",{className:"btn-ghost",style:{color:"#f87171",borderColor:"rgba(248,113,113,0.3)"},onClick:resetGist},"⚠️ Reconfigurar Gist / trocar token")
+  );
+}
+// ── PIN helpers ───────────────────────────────────────────────────────────────
+async function hashPin(pin){
+  const buf=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(pin+"glicemia-salt"));
+  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,"0")).join("");
+}
+
+// ── PinModal ──────────────────────────────────────────────────────────────────
+function PinModal({title,sub,onSuccess,onCancel}){
+  const[digits,setDigits]=useState([]);
+  const[err,setErr]=useState("");
+  const[shake,setShake]=useState(false);
+
+  const press=d=>{
+    if(digits.length>=4)return;
+    const next=[...digits,d];
+    setDigits(next);setErr("");
+    if(next.length===4){
+      const pin=next.join("");
+      hashPin(pin).then(h=>{
+        const stored=LS.get("admin-pin-hash");
+        if(!stored){
+          // first time — set pin
+          LS.set("admin-pin-hash",h);
+          onSuccess();
+        } else if(h===stored){
+          onSuccess();
+        } else {
+          setShake(true);setErr("PIN incorreto");
+          setTimeout(()=>{setDigits([]);setShake(false);},600);
+        }
+      });
+    }
+  };
+  const del=()=>setDigits(d=>d.slice(0,-1));
+
+  const keys=["1","2","3","4","5","6","7","8","9","","0","⌫"];
+  return React.createElement("div",{className:"pin-overlay",onClick:e=>{if(e.target.className==="pin-overlay")onCancel&&onCancel()}},
+    React.createElement("div",{className:"pin-sheet",style:{animation:shake?"shake .3s ease":undefined}},
+      React.createElement("p",{className:"pin-title"},title||"🔐 PIN Admin"),
+      React.createElement("p",{className:"pin-sub"},sub||(LS.get("admin-pin-hash")?"Digite seu PIN":"Crie um PIN de 4 dígitos")),
+      React.createElement("div",{className:"pin-dots"},
+        [0,1,2,3].map(i=>React.createElement("div",{key:i,className:"pin-dot"+(digits.length>i?" filled":"")}))),
+      React.createElement("div",{className:"pin-grid"},
+        keys.map((k,i)=>
+          k===""?React.createElement("div",{key:i,className:"pin-btn empty"}):
+          k==="⌫"?React.createElement("button",{key:i,className:"pin-btn del",onClick:del},k):
+          React.createElement("button",{key:i,className:"pin-btn",onClick:()=>press(k)},k)
+        )
+      ),
+      err&&React.createElement("p",{className:"pin-error"},err),
+      onCancel&&React.createElement("button",{onClick:onCancel,style:{width:"100%",marginTop:14,background:"none",border:"none",color:"#5c5a56",fontSize:13,cursor:"pointer",fontFamily:"'DM Sans',sans-serif"}},"Cancelar")
+    )
+  );
+}
+
+// ── ProfileSelector ───────────────────────────────────────────────────────────
+function ProfileSelector({onSelect,onAdmin}){
+  const profiles=LS.get("profiles")||[];
+  const emojis=["🌸","🌻","🌺","🦋","🌙","⭐"];
+  return React.createElement("div",{className:"profile-screen"},
+    React.createElement("p",{className:"section-title",style:{marginBottom:20}},"Quem é você?"),
+    profiles.map((p,i)=>React.createElement("div",{key:p.gistId,className:"profile-card",onClick:()=>onSelect(p)},
+      React.createElement("div",{className:"profile-avatar"},emojis[i%emojis.length]),
+      React.createElement("div",{className:"profile-info"},
+        React.createElement("div",{className:"profile-name"},p.name||"Paciente"),
+        React.createElement("div",{className:"profile-sub"},"Toque para entrar")
+      ),
+      React.createElement("div",{className:"profile-arrow"},"›")
+    )),
+    React.createElement("div",{className:"profile-card admin-card",onClick:onAdmin},
+      React.createElement("div",{className:"profile-avatar"},"🛡️"),
+      React.createElement("div",{className:"profile-info"},
+        React.createElement("div",{className:"profile-name"},"Admin"),
+        React.createElement("div",{className:"profile-sub"},"Gerenciar perfis")
+      ),
+      React.createElement("div",{className:"profile-arrow"},"›")
+    )
+  );
+}
+
+// ── Gist create helper ────────────────────────────────────────────────────────
+async function gistCreate(token,name){
+  const r=await fetch("https://api.github.com/gists",{
+    method:"POST",
+    headers:{Authorization:`token ${token}`,Accept:"application/vnd.github+json","Content-Type":"application/json"},
+    body:JSON.stringify({
+      description:`Glicemia — ${name}`,
+      public:false,
+      files:{[GIST_FILE]:{content:JSON.stringify({profile:{nome:name},logs:[],updated:new Date().toISOString()},null,2)}}
+    })
+  });
+  if(!r.ok)throw new Error(`HTTP ${r.status}`);
+  const d=await r.json();
+  return d.id;
+}
+
+// ── AdminPanel ────────────────────────────────────────────────────────────────
+function AdminPanel({onSelectProfile,onClose,showToast}){
+  const[profiles,setProfilesState]=useState(()=>LS.get("profiles")||[]);
+  const[name,setName]=useState("");
+  const[token,setToken]=useState(()=>LS.get("admin-token")||"");
+  const[busy,setBusy]=useState(false);
+  const[created,setCreated]=useState(null); // {name, token, gistId}
+  const[copied,setCopied]=useState("");
+
+  const saveProfiles=(ps)=>{LS.set("profiles",ps);setProfilesState(ps)};
+
+  const createProfile=async()=>{
+    if(!name.trim()||!token.trim())return;
+    setBusy(true);
+    try{
+      const gistId=await gistCreate(token.trim(),name.trim());
+      const np={name:name.trim(),token:token.trim(),gistId};
+      const updated=[...profiles.filter(p=>p.gistId!==gistId),np];
+      saveProfiles(updated);
+      LS.set("admin-token",token.trim()); // remember token
+      setCreated({name:name.trim(),token:token.trim(),gistId});
+      setName("");
+      showToast("✓ Perfil criado!");
+    }catch(e){showToast("Erro ao criar: "+e.message,"error");}
+    finally{setBusy(false)}
+  };
+
+  const removeProfile=id=>{if(!confirm("Remover perfil?"))return;saveProfiles(profiles.filter(p=>p.gistId!==id))};
+  const resetPin=()=>{LS.set("admin-pin-hash","");showToast("PIN redefinido!");};
+
+  const copyText=async(text,label)=>{
+    try{await navigator.clipboard.writeText(text);setCopied(label);setTimeout(()=>setCopied(""),2000);}
+    catch{/* fallback */const el=document.createElement("textarea");el.value=text;document.body.appendChild(el);el.select();document.execCommand("copy");document.body.removeChild(el);setCopied(label);setTimeout(()=>setCopied(""),2000);}
+  };
+
+  const shareWhatsApp=(p)=>{
+    const msg=`🩸 *App de Monitoramento Glicêmico*\n\nAcesse: https://drag0nzlay3er.github.io/glicemia-monitora/\n\nNa tela de configuração use:\n*Token:* ${p.token}\n*Gist ID:* ${p.gistId}\n\nEsse acesso é só seu — não compartilhe com ninguém.`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`,"_blank");
+  };
+
+  return React.createElement("div",{className:"content"},
+    React.createElement("div",{style:{display:"flex",alignItems:"center",gap:12,marginBottom:16}},
+      React.createElement("p",{className:"section-title",style:{marginBottom:0,flex:1}},"Painel Admin"),
+      React.createElement("button",{onClick:onClose,style:{background:"rgba(255,255,255,0.07)",border:"1px solid rgba(255,255,255,0.1)",borderRadius:8,padding:"6px 12px",fontSize:12,color:"#9c9a96",cursor:"pointer",fontFamily:"'DM Sans',sans-serif"}},"← Voltar")
+    ),
+
+    // Perfis cadastrados
+    React.createElement("div",{className:"card"},
+      React.createElement("p",{className:"card-title"},"Perfis cadastrados"),
+      profiles.length===0&&React.createElement("p",{style:{fontSize:13,color:"#5c5a56",marginBottom:4}},"Nenhum perfil ainda."),
+      profiles.map(p=>React.createElement("div",{key:p.gistId,style:{display:"flex",alignItems:"center",gap:10,padding:"12px 0",borderBottom:"1px solid rgba(255,255,255,0.05)"}},
+        React.createElement("div",{style:{flex:1}},
+          React.createElement("div",{style:{fontSize:14,fontWeight:600,color:"#e8e4df"}},p.name),
+          React.createElement("div",{style:{fontSize:11,color:"#7c7a76",marginTop:2,fontFamily:"monospace"}},p.gistId.slice(0,16)+"...")
+        ),
+        React.createElement("button",{onClick:()=>shareWhatsApp(p),style:{background:"rgba(74,222,128,0.1)",border:"1px solid rgba(74,222,128,0.2)",borderRadius:8,padding:"5px 10px",fontSize:12,color:"#4ade80",cursor:"pointer",fontFamily:"'DM Sans',sans-serif",marginRight:4}},"📲"),
+        React.createElement("button",{onClick:()=>onSelectProfile(p),style:{background:"rgba(232,196,160,0.15)",border:"1px solid rgba(232,196,160,0.3)",borderRadius:8,padding:"5px 10px",fontSize:12,color:"#e8c4a0",cursor:"pointer",fontFamily:"'DM Sans',sans-serif",marginRight:4}},"Abrir"),
+        React.createElement("button",{onClick:()=>removeProfile(p.gistId),style:{background:"none",border:"none",color:"#f87171",cursor:"pointer",fontSize:18,padding:"4px"}},"✕")
+      ))
+    ),
+
+    // Criar novo perfil
+    React.createElement("div",{className:"card"},
+      React.createElement("p",{className:"card-title"},"Criar novo perfil"),
+      React.createElement("div",{className:"info-box",style:{marginBottom:12}},"Informe o nome e o token. O Gist é criado automaticamente."),
+      React.createElement("div",{className:"field"},
+        React.createElement("label",null,"Nome da paciente"),
+        React.createElement("input",{placeholder:"ex: Mãe, Lara, Ana...",value:name,onChange:e=>setName(e.target.value)})
+      ),
+      React.createElement("div",{className:"field"},
+        React.createElement("label",null,"Personal Access Token (GitHub)"),
+        React.createElement("input",{type:"password",placeholder:"ghp_...",value:token,onChange:e=>setToken(e.target.value),autoComplete:"off",autoCorrect:"off",autoCapitalize:"off",spellCheck:"false"})
+      ),
+      React.createElement("button",{className:"btn-primary",onClick:createProfile,disabled:busy||!name.trim()||!token.trim()},busy?"Criando Gist...":"✨ Criar perfil automaticamente")
+    ),
+
+    // Credenciais geradas — mostrar após criação
+    created&&React.createElement("div",{className:"card",style:{border:"1px solid rgba(74,222,128,0.3)"}},
+      React.createElement("p",{className:"card-title",style:{color:"#4ade80"}},"✓ Perfil criado — credenciais"),
+      React.createElement("p",{style:{fontSize:13,color:"#9c9a96",marginBottom:14}},`Compartilhe com ${created.name} para ela configurar o app:`),
+
+      // Token
+      React.createElement("div",{style:{background:"#252b3b",borderRadius:10,padding:"12px 14px",marginBottom:10}},
+        React.createElement("div",{style:{fontSize:11,color:"#7c7a76",marginBottom:4,textTransform:"uppercase",letterSpacing:"1px",fontWeight:600}},"Token"),
+        React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8}},
+          React.createElement("div",{style:{flex:1,fontSize:12,color:"#e8c4a0",fontFamily:"monospace",wordBreak:"break-all"}},created.token),
+          React.createElement("button",{onClick:()=>copyText(created.token,"token"),style:{background:"rgba(232,196,160,0.15)",border:"1px solid rgba(232,196,160,0.3)",borderRadius:8,padding:"6px 12px",fontSize:12,color:"#e8c4a0",cursor:"pointer",fontFamily:"'DM Sans',sans-serif",flexShrink:0}},copied==="token"?"✓ Copiado!":"Copiar")
+        )
+      ),
+
+      // Gist ID
+      React.createElement("div",{style:{background:"#252b3b",borderRadius:10,padding:"12px 14px",marginBottom:14}},
+        React.createElement("div",{style:{fontSize:11,color:"#7c7a76",marginBottom:4,textTransform:"uppercase",letterSpacing:"1px",fontWeight:600}},"Gist ID"),
+        React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8}},
+          React.createElement("div",{style:{flex:1,fontSize:12,color:"#60a5fa",fontFamily:"monospace",wordBreak:"break-all"}},created.gistId),
+          React.createElement("button",{onClick:()=>copyText(created.gistId,"gistId"),style:{background:"rgba(96,165,250,0.15)",border:"1px solid rgba(96,165,250,0.3)",borderRadius:8,padding:"6px 12px",fontSize:12,color:"#60a5fa",cursor:"pointer",fontFamily:"'DM Sans',sans-serif",flexShrink:0}},copied==="gistId"?"✓ Copiado!":"Copiar")
+        )
+      ),
+
+      // WhatsApp
+      React.createElement("button",{onClick:()=>shareWhatsApp(created),style:{width:"100%",background:"rgba(74,222,128,0.15)",border:"1px solid rgba(74,222,128,0.3)",borderRadius:12,padding:"13px",fontSize:14,fontWeight:600,color:"#4ade80",cursor:"pointer",fontFamily:"'DM Sans',sans-serif"}},
+        "📲 Enviar pelo WhatsApp"
+      ),
+      React.createElement("button",{onClick:()=>setCreated(null),style:{width:"100%",marginTop:8,background:"none",border:"none",color:"#5c5a56",fontSize:12,cursor:"pointer",fontFamily:"'DM Sans',sans-serif"}},"Fechar")
+    ),
+
+    // Segurança
+    React.createElement("div",{className:"card"},
+      React.createElement("p",{className:"card-title"},"Segurança"),
+      React.createElement("button",{className:"btn-ghost",style:{color:"#f87171",borderColor:"rgba(248,113,113,0.3)"},onClick:resetPin},"🔑 Redefinir PIN admin")
+    )
+  );
+}
+
+// ── App ───────────────────────────────────────────────────────────────────────
+function App(){
+  // ── Multi-profile state ──
+  const[screen,setScreen]=useState("profiles"); // profiles | pin-admin | admin | app
+  const[activeProfile,setActiveProfile]=useState(null);
+  const[showPinModal,setShowPinModal]=useState(false);
+  const[showSwitcher,setShowSwitcher]=useState(false);
+  const[pendingProfile,setPendingProfile]=useState(null);
+
+  // ── App state ──
+  const[tab,setTab]=useState("Dashboard");
+  const[toast,setToast]=useState(null);
+  const[syncStatus,setSyncStatus]=useState("offline");
+  const[profile,setProfile]=useState({nome:"",dataNasc:"",peso_inicial:"",medico:"",crm:"",telefone_medico:"",remedios:"",meds:[]});
+  const[logs,setLogs]=useState([]);
+  const[loaded,setLoaded]=useState(false);
+  const[saving,setSaving]=useState(false);
+  const[editLog,setEditLog]=useState(null);
+  const handleEdit=useCallback((log)=>{setEditLog(log);setTab("Registrar");},[]);
+  const clearEdit=useCallback(()=>{setEditLog(null);},[]);
+  const showToast=useCallback((msg,type="success")=>{setToast({msg,type});setTimeout(()=>setToast(null),2800)},[]);
+  const meds=profile.meds||[];
+  useAlarmTick(logs,meds);
+
+  // ── Load data for active profile ──
+  useEffect(()=>{
+    if(!activeProfile)return;
+    setLoaded(false);setProfile({nome:"",dataNasc:"",peso_inicial:"",medico:"",crm:"",telefone_medico:"",remedios:"",meds:[]});setLogs([]);
+    setSyncStatus("syncing");
+    gistLoad(activeProfile.token,activeProfile.gistId).then(d=>{
+      if(d){
+        if(d.profile)setProfile(p=>({...p,...d.profile}));
+        const entries=d.logs||d.readings||[];
+        setLogs(entries.map(r=>({meds:{},rxChips:[],rxObs:"",...r})));
+      }
+      setSyncStatus("synced");setLoaded(true);
+    }).catch(e=>{console.error(e);setSyncStatus("error");setLoaded(true);showToast("Erro ao carregar dados","error")});
+  },[activeProfile]);
+
+  const syncLogs=useCallback(async(newLogs,newProfile)=>{
+    if(!activeProfile)return;
+    const p=newProfile||profile;
+    setSaving(true);setSyncStatus("syncing");
+    try{await gistSave(activeProfile.token,activeProfile.gistId,{profile:p,logs:newLogs,updated:new Date().toISOString()});setSyncStatus("synced")}
+    catch(e){console.error(e);setSyncStatus("error");showToast("Erro ao sincronizar","error")}
+    finally{setSaving(false)}
+  },[activeProfile,profile,showToast]);
+
+  const saveProfile=async()=>{showToast("✓ Perfil salvo!");await syncLogs(logs,profile)};
+
+  const avgJ=logs.filter(r=>r.jejum).slice(0,7).reduce((s,r,_,a)=>a.length?s+Number(r.jejum)/a.length:s,0).toFixed(0);
+  const avgP=logs.filter(r=>r.pos_cafe).slice(0,7).reduce((s,r,_,a)=>a.length?s+Number(r.pos_cafe)/a.length:s,0).toFixed(0);
+  const handleExport=type=>{
+    if(type==="pdf"){exportPDF(profile,logs,avgJ,avgP);showToast("✓ PDF gerado!");}
+    else openPrintReport(profile,logs,avgJ,avgP);
+  };
+
+  // ── Profile selection handlers ──
+  const enterProfile=useCallback((p)=>{
+    setActiveProfile(p);setScreen("app");setTab("Dashboard");
+  },[]);
+
+  const handleSelectProfile=useCallback((p)=>{
+    // Update profile name in registry if profile data loaded
+    enterProfile(p);
+  },[enterProfile]);
+
+  const handleAdminClick=()=>{setScreen("pin-admin");};
+  const handlePinSuccess=()=>{
+    if(pendingProfile){enterProfile(pendingProfile);setPendingProfile(null);}
+    else setScreen("admin");
+  };
+  const handleSwitchRequest=()=>{setShowSwitcher(true);};
+
+  const SLABELS={offline:"sem sync",syncing:"sincronizando...",synced:"sincronizado ✓",error:"erro de sync"};
+  const hDate=new Date().toLocaleDateString("pt-BR",{weekday:"long",day:"numeric",month:"long"});
+
+  // ── Screens ──
+  const header=React.createElement("div",{className:"header"},React.createElement("h1",null,"🩸 Monitoramento Glicêmico"));
+
+  if(screen==="profiles"||screen==="pin-admin"){
+    const profiles=LS.get("profiles")||[];
+    // If no profiles yet, go straight to admin setup
+    if(profiles.length===0&&screen==="profiles"){
+      return React.createElement("div",{className:"app"},
+        header,
+        React.createElement("div",{className:"content"},
+          React.createElement("div",{className:"info-box"},"Nenhum perfil cadastrado. Entre como Admin para adicionar."),
+          React.createElement("div",{className:"profile-card admin-card",onClick:handleAdminClick,style:{cursor:"pointer"}},
+            React.createElement("div",{className:"profile-avatar"},"🛡️"),
+            React.createElement("div",{className:"profile-info"},React.createElement("div",{className:"profile-name"},"Admin"),React.createElement("div",{className:"profile-sub"},"Cadastrar perfis")),
+            React.createElement("div",{className:"profile-arrow"},"›")
+          )
+        ),
+        screen==="pin-admin"&&React.createElement(PinModal,{onSuccess:handlePinSuccess,onCancel:()=>setScreen("profiles")})
+      );
+    }
+    return React.createElement("div",{className:"app"},
+      header,
+      React.createElement(ProfileSelector,{onSelect:handleSelectProfile,onAdmin:handleAdminClick}),
+      screen==="pin-admin"&&React.createElement(PinModal,{onSuccess:handlePinSuccess,onCancel:()=>setScreen("profiles")})
+    );
+  }
+
+  if(screen==="admin"){
+    return React.createElement("div",{className:"app"},
+      header,
+      React.createElement(AdminPanel,{
+        onSelectProfile:(p)=>{enterProfile(p);},
+        onClose:()=>setScreen("profiles"),
+        showToast
+      }),
+      toast&&React.createElement("div",{className:"toast "+(toast.type||"success")},toast.msg)
+    );
+  }
+
+  // ── Main app screen ──
+  if(!loaded)return React.createElement("div",{className:"app"},
+    React.createElement("div",{className:"header"},React.createElement("h1",null,"🩸 Monitoramento Glicêmico")),
+    React.createElement("div",{className:"empty"},React.createElement("div",{className:"icon"},"⏳"),React.createElement("p",null,"Carregando dados de ",React.createElement("strong",null,activeProfile?.name||"...")))
+  );
+
+  return React.createElement("div",{className:"app"},
+    React.createElement("div",{className:"header"},
+      React.createElement("h1",null,"🩸 Monitoramento Glicêmico"),
+      React.createElement("div",{className:"header-row"},
+        React.createElement("p",null,`${profile.nome||activeProfile?.name||"—"} · ${hDate}`),
+        React.createElement("div",{style:{display:"flex",gap:6,alignItems:"center",flexShrink:0}},
+          React.createElement("span",{className:"sync-badge "+syncStatus},SLABELS[syncStatus]),
+          React.createElement("button",{className:"switch-btn",onClick:handleSwitchRequest},"↕ trocar")
+        )
+      )
+    ),
+    React.createElement("div",{className:"tabs"},TABS.map(t=>React.createElement("button",{key:t,className:"tab-btn"+(tab===t?" active":""),onClick:()=>setTab(t)},t))),
+    React.createElement("div",{className:"content"},
+      tab==="Dashboard"&&React.createElement(TabDashboard,{logs,avgJ,avgP,onExport:handleExport,meds}),
+      tab==="Registrar"&&React.createElement(TabRegistrar,{logs,setLogs,sync:syncLogs,profile,saving,showToast,editLog,clearEdit,meds}),
+      tab==="Histórico"&&React.createElement(TabHistorico,{logs,setLogs,sync:syncLogs,onEdit:handleEdit,meds}),
+      tab==="Perfil"&&React.createElement(TabPerfil,{profile,setProfile,save:saveProfile,saving,resetGist:()=>setScreen("profiles"),onExport:handleExport,meds})
+    ),
+    // Quick switcher overlay
+    showSwitcher&&React.createElement("div",{className:"pin-overlay",onClick:()=>setShowSwitcher(false)},
+      React.createElement("div",{className:"pin-sheet"},
+        React.createElement("p",{className:"pin-title",style:{marginBottom:16}},"Trocar perfil"),
+        (LS.get("profiles")||[]).map((p,i)=>{
+          const emojis=["🌸","🌻","🌺","🦋","🌙","⭐"];
+          const isActive=p.gistId===activeProfile?.gistId;
+          return React.createElement("div",{key:p.gistId,className:"profile-card",style:{marginBottom:10,opacity:isActive?.6:1,cursor:isActive?"default":"pointer"},onClick:()=>{if(!isActive){setShowSwitcher(false);handleSelectProfile(p);}}},
+            React.createElement("div",{className:"profile-avatar"},emojis[i%emojis.length]),
+            React.createElement("div",{className:"profile-info"},React.createElement("div",{className:"profile-name"},p.name),React.createElement("div",{className:"profile-sub"},isActive?"perfil atual":"toque para entrar")),
+            isActive&&React.createElement("div",{style:{fontSize:11,color:"#4ade80",fontWeight:600}},"✓")
+          );
+        }),
+        React.createElement("div",{className:"profile-card admin-card",style:{marginBottom:0},onClick:()=>{setShowSwitcher(false);handleAdminClick();}},
+          React.createElement("div",{className:"profile-avatar"},"🛡️"),
+          React.createElement("div",{className:"profile-info"},React.createElement("div",{className:"profile-name"},"Admin"),React.createElement("div",{className:"profile-sub"},"Gerenciar perfis")),
+          React.createElement("div",{className:"profile-arrow"},"›")
+        )
+      )
+    ),
+    showSwitcher&&screen!=="pin-admin"&&React.createElement(React.Fragment,null),
+    // PIN for admin from switcher
+    showSwitcher===false&&screen==="pin-admin"&&React.createElement(PinModal,{onSuccess:handlePinSuccess,onCancel:()=>setScreen("app")}),
+    toast&&React.createElement("div",{className:"toast "+(toast.type||"success")},toast.msg)
+  );
+}
 ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(App));
+</script>
+
+<!-- Service Worker Registration -->
+<script>
+if('serviceWorker' in navigator){
+  window.addEventListener('load',()=>{
+    navigator.serviceWorker.register('/glicemia-monitora/service-worker.js')
+      .then(reg=>{
+        console.log('[SW] Registrado:',reg.scope);
+        // Check for updates
+        reg.addEventListener('updatefound',()=>{
+          const newWorker=reg.installing;
+          newWorker.addEventListener('statechange',()=>{
+            if(newWorker.state==='installed'&&navigator.serviceWorker.controller){
+              console.log('[SW] Nova versão disponível');
+            }
+          });
+        });
+      })
+      .catch(err=>console.warn('[SW] Falha no registro:',err));
+  });
+  // Online/offline indicator
+  const updateOnline=()=>document.body.classList.toggle('is-offline',!navigator.onLine);
+  window.addEventListener('online',updateOnline);
+  window.addEventListener('offline',updateOnline);
+  updateOnline();
+}
 </script>
 </body>
 </html>
