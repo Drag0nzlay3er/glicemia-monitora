@@ -1,0 +1,26 @@
+{
+  "name": "Monitoramento Glicêmico",
+  "short_name": "Glicemia",
+  "description": "Acompanhamento de glicemia, remédios e sintomas",
+  "start_url": "/glicemia-monitora/",
+  "scope": "/glicemia-monitora/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0f1117",
+  "theme_color": "#0f1117",
+  "lang": "pt-BR",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect width='192' height='192' rx='40' fill='%231a1f2e'/><text y='140' x='96' text-anchor='middle' font-size='110'>🩸</text></svg>",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='100' fill='%231a1f2e'/><text y='380' x='256' text-anchor='middle' font-size='300'>🩸</text></svg>",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
